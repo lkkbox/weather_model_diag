@@ -1,0 +1,154 @@
+#!/nwpr/gfs/com120/.conda/envs/rd/bin/python
+from rmmPhaseDiagram import phase_diagram
+import pytools as pyt
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+
+def main():
+    #
+    # ---- setup
+    dataRoot = '../../../data/MJO/RMM' 
+    initTimes = [pyt.tt.ymd2float(2024, 1, 1) + i for i in range(31)]
+    numMembers = 1
+    numLeads = 30
+    # initTimes = [pyt.tt.ymd2float(2024, 1, 1) + i for i in range(31)]
+    # models = {
+    #     'exp_gepsv3_da-off': 'da-off',
+    #     'exp_gepsv3_da-sst': 'da-sst',
+    #     'exp_gepsv3_da-all': 'da-all',
+    # }
+    # figsetName = 'exp_gepsv3_da'
+
+    initTimes = [pyt.tt.ymd2float(2009, 1, 26)]
+    models = {
+        'exp_mjo-DEVM21': 'CTL',
+        'exp_mjo-DEVM21S9': 'S',
+        'exp_mjo-M22G3IKH': 'M',
+        'exp_mjo-M22G3IKHS9': 'MS',
+    }
+    figsetName = 'exp_mjo_250529'
+    leadMeans = [slice(0, 5), slice(5, 10), slice(10, 15), slice(15,20), slice(20, 30)]
+
+    #
+    # ---- post init
+    numModels = len(models)
+    numInits = len(initTimes)
+    figDir = f'../../../figs/{figsetName}/MJO'
+    if not os.path.exists(figDir):
+        os.system(f'mkdir -p {figDir}')
+    fp = pyt.tmt.FlushPrinter()
+    fp.print(f'> entering {pyt.ft.getModuleName()}')
+
+    #
+    # ---- read rmm indices
+    # ---- ---- obs
+    fp.flush('reading obs')
+    timeRange = [min(initTimes), max(initTimes)+numLeads]
+    paths = [
+        pyt.tt.float2format(
+            date,
+            f'{dataRoot}/obs/%Y/%y%m%d_RMM.nc',
+        )
+        for date in np.r_[timeRange[0]:timeRange[1]+1]
+    ]
+    paths = [p for i, p in enumerate(paths) if p not in paths[:i]]
+    pc1_obs, dims_obs = pyt.rt.multiNcRead.read(paths, 'pc1', [[None]*2], stackedAlong=0)
+    pc2_obs, dims_obs = pyt.rt.multiNcRead.read(paths, 'pc2', [[None]*2], stackedAlong=0)
+
+    # ---- ---- align the obs to valid dates
+    pc1_valid = np.nan * np.ones((numInits, numLeads))
+    pc2_valid = np.nan * np.ones((numInits, numLeads))
+    date_obs = list(dims_obs[0])
+    for iInit, initTime in enumerate(initTimes):
+        validDates = [initTime + lead for lead in range(numLeads)]
+        iDates = [date_obs.index(vd) for vd in validDates]
+        pc1_valid[iInit, :] = pc1_obs[iDates]
+        pc2_valid[iInit, :] = pc2_obs[iDates]
+
+    # ---- ---- model
+    def getModelPath(modelName, iMember, initTime):
+        return pyt.tt.float2format(
+            initTime,
+            f'{dataRoot}/{modelName}/%Y/E{iMember:03d}/%y%m%d_RMM.nc'
+        )
+
+    pc1_model = np.nan * np.ones((numModels, numMembers, numInits, numLeads))
+    pc2_model = np.nan * np.ones((numModels, numMembers, numInits, numLeads))
+
+    for iModel, modelName in enumerate(models):
+        for iInit, initTime in enumerate(initTimes):
+            for iMember in range(numMembers):
+                path = getModelPath(modelName, iMember, initTime)
+                if not os.path.exists(path):
+                    print(f'path not found {path}')
+                    continue
+                pc1 = pyt.nct.read(path, 'pc1')
+                pc2 = pyt.nct.read(path, 'pc2')
+
+                nt = min([len(pc1), numLeads])
+                pc1_model[iModel, iMember, iInit, :nt] = pc1[:nt]
+                pc2_model[iModel, iMember, iInit, :nt] = pc2[:nt]
+
+    #
+    # ---- calculate scores
+    acc = np.nansum((pc1_model * pc1_valid + pc2_model * pc2_valid), axis=-2)
+    acc /= np.sqrt(np.nansum(pc1_model ** 2 + pc2_model ** 2, axis=-2))
+    acc /= np.sqrt(np.nansum(pc1_valid ** 2 + pc2_valid ** 2, axis=-2))
+
+    rmse = np.sqrt(
+        np.nanmean(
+            (pc1_model - pc1_valid) ** 2 + (pc2_model - pc2_valid) ** 2,
+            axis=-2
+        )
+    )
+    acc = np.nanmean(acc, axis=1) # score mean over ensemble
+    rmse = np.nanmean(rmse, axis=1) # score mean over ensemble
+
+
+    #
+    # ---- plot scores
+    x = list(range(1, numLeads+1))
+    fig = plt.figure()
+    for iax, (scores, name) in enumerate(zip([rmse, acc], ['RMSE', 'ACC'])):
+        ax = fig.add_subplot(2, 1, iax+1)
+        for score, model in zip(scores, models): 
+            ax.plot(x, score, label=models[model])
+        ax.set_ylabel(name)
+        ax.set_xlim([1, numLeads])
+        ax.grid()
+        if iax == 0:
+            ax.set_title('Bivariate scores of RMM indices')
+        if iax == 1:
+            ax.set_xlabel('lead (days)')
+            ax.legend()
+
+    fig.savefig(f'{figDir}/rmm_score.png')
+    plt.close()
+
+    #
+    # ---- phase diagram
+    for ifig, leadMean in enumerate(leadMeans):
+        fig, ax = phase_diagram()
+        # -- obs
+        x = np.nanmean(pc1_valid[:, leadMean], axis=-1)
+        y = np.nanmean(pc2_valid[:, leadMean], axis=-1)
+        ax.plot(x, y, label='obs', color='k')
+        ax.plot(x[0], y[0], marker='o', color='k')
+        # -- model
+        for pc1, pc2, model in zip(pc1_model, pc2_model, models):
+            x = np.nanmean(pc1[0, :, leadMean], axis=-1)
+            y = np.nanmean(pc2[0, :, leadMean], axis=-1)
+            ax.plot(x, y, label=models[model])
+            ax.plot(x[0], y[0], marker='o', color='k')
+
+        ax.set_title(f'lead={leadMean.start+1}-{leadMean.stop}')
+        ax.legend()
+        fig.savefig(f'{figDir}/rmm_phasedigram_{ifig}.png')
+        plt.close()
+    
+    fp.print(f'> exiting {pyt.ft.getModuleName()}')
+
+if __name__ == '__main__':
+    main()

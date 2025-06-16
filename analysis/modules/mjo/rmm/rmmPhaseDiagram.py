@@ -1,0 +1,1 @@
+/nwpr/gfs/com120/0_tools/MJO/RMM_WH04/rmmPhaseDiagram.py

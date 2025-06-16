@@ -1,0 +1,4 @@
+This module estimates the model performance by calculating
+ACC, PCC, and RMSE. The scores are averaged over spatial
+dimensions for ACC and RMSE, and averaged over the initialized
+time dimensions for PCC.
