@@ -131,7 +131,7 @@ def global_daily_1p0(initTime, desPath, lon, lat, data, variable):
     LAT = np.r_[-90:90+1]
 
     # daily mean
-    times = np.array([initTime + lead/24 + variable.shiftHour for lead in variable.leads])
+    times = np.array([initTime + lead/24 + variable.shiftHour/24 for lead in variable.leads])
     dates = list(set([int(t) for t in times]))
     dates.sort()
     numDays = len(dates)
@@ -161,7 +161,7 @@ def qbud_16d(initTime, desPath, lon, lat, data, variable):
     # select 16 days
     mask = (np.array(variable.leads) <= 16 * 24)
     qbud = data[mask, :]
-    times = np.array([initTime + lead/24 + variable.shiftHour for lead in variable.leads])
+    times = np.array([initTime + lead/24 + variable.shiftHour/24 for lead in variable.leads])
     times = times[mask]
 
     print('interpolating..', flush=True, end='')
