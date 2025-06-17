@@ -8,14 +8,14 @@ import traceback
 def main():
     # settings
     data_dir = '../../data/processed'
-    modelName = 'CWA_GEPSv3'
-    numMembers = 21
+    modelName, numMembers = 'CWA_GEPSv2', 33
+    modelName, numMembers = 'CWA_GEPSv3', 21
     initTime0 = pyt.tt.ymd2float(2025, 1, 1)
     numInits = 90
     dataType = 'global_daily_1p0'
     varNames = [
         'u10', 'v10', 't2m', 'prec', 'olr', 'pw', 'mslp',
-        'u', 'v', 't', 'q', 'z',
+        'u', 'v', 't', 'r', 'z',
     ]
 
     # auto settings
@@ -28,6 +28,10 @@ def main():
         srcPath = get_path(data_dir, modelName, initTime, 0, dataType, varName)
         desPath = get_path(data_dir, modelName, initTime, -numMembers, dataType, varName)
         tmpPath = './tmp.nc'
+
+        if os.path.exists(desPath):
+            print(f'{desPath} already exists.')
+            return
 
         desDir = os.path.dirname(desPath)
         if not os.path.exists(desDir):
@@ -46,8 +50,12 @@ def main():
         # read data
         data, dims = pyt.modelreader.readTotal.readTotal(
             modelName, dataType, varName, minMaxs, [initTime],
-            members, rootDir=data_dir,
+            members, rootDir=data_dir, 
         )
+
+        if data is None:
+            print(f'[Fatal] no data is read')
+            return
 
         data = np.squeeze(data, axis=0)         # init time
         dataEnsMean = np.nanmean(data, axis=0)  # ensemble
