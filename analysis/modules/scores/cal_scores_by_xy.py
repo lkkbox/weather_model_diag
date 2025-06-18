@@ -33,6 +33,22 @@ def run(cases, dataDir, option):
 @safe_runner
 def _run_variable(cases, dataDir, variable, option):
     print(f'         variable = {variable.name}')
+
+    # check if we can skip this variable
+    canSkip = True
+    for case in cases:
+        for member in case.model.members:
+            skipRaw, skipBC = _get_skips(dataDir, case.model, member, variable)
+            if not skipRaw or not skipBC:
+                canSkip = False
+                break
+        if not canSkip:
+            break
+
+    if canSkip:
+        print('all output paths are found')
+        return
+
     reader = Reader(
         dataDir, 
         regrid_delta_x=option.regrid_delta_x,
@@ -53,6 +69,13 @@ def _run_variable(cases, dataDir, variable, option):
 
     @safe_runner
     def run_member(model, member, modClim):
+        print(f'        {variable.name}, {model.name}, {member}')
+        # skip if the file already exists
+        skipRaw, skipBC = _get_skips(dataDir, model, member, variable)
+        if skipRaw and skipBC:
+            print('all output files already exists')
+            return
+
         # rearrange obs data to valid (time) -> (initTime, lead)
         validAnom = reader.obs_to_valid(obsAnom, model)
         validClim = reader.obs_to_valid(obsClim, model)
@@ -60,9 +83,11 @@ def _run_variable(cases, dataDir, variable, option):
         # read model total
         modTotal = reader.read_mod_total(case.model, member, variable, case.model.numLeads)
 
-        scoresRaw = _cal_scores(validAnom.vals, (modTotal - validClim).vals)
-        _save_output(dataDir, model, member, variable, modTotal.dims, scoresRaw, "raw")
-        if modClim is not None:
+        if not skipRaw:
+            scoresRaw = _cal_scores(validAnom.vals, (modTotal - validClim).vals)
+            _save_output(dataDir, model, member, variable, modTotal.dims, scoresRaw, "raw")
+
+        if not skipBC and modClim is not None:
             scoresBC = _cal_scores(validAnom.vals, (modTotal - modClim).vals)
             _save_output(dataDir, model, member, variable, modTotal.dims, scoresBC, "BC")
 
@@ -79,6 +104,14 @@ def _run_variable(cases, dataDir, variable, option):
 
         for member in case.model.members:
             run_member(case.model, member, modClim)
+
+
+def _get_skips(dataDir, model, member, variable):
+    outPathRaw = _get_output_path(dataDir, model, member, variable, "raw")
+    outPathBC = _get_output_path(dataDir, model, member, variable, "BC")
+    skipRaw = os.path.exists(outPathRaw)
+    skipBC = os.path.exists(outPathBC) or (not model.hasClim)
+    return skipRaw, skipBC
 
 
 def _cal_scores(o, f):
@@ -126,17 +159,20 @@ def _get_output_dir(dataDir, model, member):
         f'{scoresDir}/{model.name}/E{member:03d}/%y%m%d/{model.numInitTimes:04d}'
     )
 
-
-def _save_output(dataDir, model, member, variable, dims, scores, rawOrBC):
+def _get_output_path(dataDir, model, member, variable, rawOrBC):
     if rawOrBC == 'raw':
         suffix = 'raw'
     elif rawOrBC == 'BC':
         suffix = 'bc'
     else:
         ValueError(f'unrecognized option {rawOrBC=}')
-        
     outDir = _get_output_dir(dataDir, model, member)
     outPath = f'{outDir}/{variable.name}_{suffix}.nc'
+    return outPath
+
+
+def _save_output(dataDir, model, member, variable, dims, scores, rawOrBC):
+    outPath = _get_output_path(dataDir, model, member, variable, rawOrBC)
 
     if variable.ndim == 4:
         dimStruct = {
