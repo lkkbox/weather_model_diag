@@ -88,6 +88,19 @@ class Reader:
         data.vals = np.squeeze(data.vals, axis=1) # member
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
 
+        if data.vals.shape[1] < numLeads: # not enough lead (TGFS PW :(( )
+            print(f'[warning] data is padded by nans because expecting {numLeads=}, but only received {data.vals.shape[1]}')
+            delta = numLeads - data.vals.shape[1]
+            nanShape = (data.vals.shape[0], delta, *data.vals.shape[2:])
+            data.vals = np.concatenate(
+                (data.vals, np.nan * np.ones((nanShape))),
+                axis = 1
+            )
+            data.dims[0] = np.concatenate(
+                (data.dims[0], np.nan * np.ones((delta))),
+                axis = 0
+            )
+
         data = self._post_proc(data, variable)
         return data
 
