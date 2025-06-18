@@ -218,6 +218,9 @@ class Rmm_plotter():
                     _slice = slice(_slice.start, self.numLeads)
 
             fig, ax = phase_diagram()
+            markerStep = 10
+            markers = '^o*s>'
+
             # -- model
             for pc1, pc2, case in zip(self.pc1_cases, self.pc2_cases, self.cases):
                 if case.model.hasClim:
@@ -228,7 +231,8 @@ class Rmm_plotter():
                     x = averager(np.nanmean(pc1, axis=0), _slice)
                     y = averager(np.nanmean(pc2, axis=0), _slice)
                     line, = ax.plot(x, y, label=case_name)
-                    ax.plot(x[0], y[0], marker='o', color=line.get_color())
+                    for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
+                        ax.plot(xx, yy, color=line.get_color(), marker=marker)
                 else:
                     for iMember, member in enumerate(case.model.members):
                         x = averager(pc1[iMember, :], _slice)
@@ -236,17 +240,22 @@ class Rmm_plotter():
                         if iMember == 0:
                             line, = ax.plot(x, y, label=case_name)
                             color = line.get_color()
+                            for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
+                                ax.plot(xx, yy, color=color, marker=marker)
                         else:
                             ax.plot(x, y, color=color)
-                        ax.plot(x[0], y[0], marker='o', color=color)
+                            for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
+                                ax.plot(xx, yy, color=color, marker=marker)
 
             # -- obs
+            color = 'k'
             x = averager(self.pc1_valid, _slice)
             y = averager(self.pc2_valid, _slice)
-            ax.plot(x, y, label='obs', color='k', linewidth=2)
-            ax.plot(x[0], y[0], marker='o', color='k')
+            ax.plot(x, y, label='obs', color=color, linewidth=2)
+            for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
+                ax.plot(xx, yy, color=color, marker=marker)
 
-            ax.set_title(f'{meanOver}={slice_to_string(_slice)}')
+            ax.set_title(f'mean({meanOver}={slice_to_string(_slice)})')
             ax.legend()
             figName = f'{self.figDir}/rmm_phase_{ensName}_{meanOver}_{slice_to_string(_slice)}.png'
             fig.savefig(figName)
