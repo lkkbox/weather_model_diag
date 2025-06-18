@@ -8,14 +8,14 @@ import traceback
 def main():
     # settings
     data_dir = '../../data/processed'
-    modelName = 'CWA_GEPSv3'
-    numMembers = 21
+    modelName = 'CWA_GEPSv2'
+    numMembers = 33
     initTime0 = pyt.tt.ymd2float(2025, 1, 1)
     numInits = 90
     dataType = 'global_daily_1p0'
     varNames = [
         'u10', 'v10', 't2m', 'prec', 'olr', 'pw', 'mslp',
-        'u', 'v', 't', 'q', 'z',
+        'u', 'v', 't', 'q', 'r', 'z',
     ]
 
     # auto settings
