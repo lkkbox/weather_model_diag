@@ -153,3 +153,12 @@ def greeter(func, prefix='', suffix=''):
         func(*args, **kwargs)
         print(f'    [{prefix}{func.__name__}{suffix}] finished')
     return wrapper
+
+
+def safe_runner(func):
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except Exception:
+            traceback.print_exc()
+    return wrapper
