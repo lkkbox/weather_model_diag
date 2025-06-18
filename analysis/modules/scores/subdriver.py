@@ -16,12 +16,12 @@ def run(cases, dataDir, figDir, option):
 @dataclass
 class Option_Variable():
     name: str
-    obs_source: str
+    obs_source: str = None
     ndim: int = None
 
     def __post_init__(self):
         pyt.chkt.checkType(self.name, str, 'name')
-        pyt.chkt.checkType(self.obs_source, str, 'obs_source')
+        pyt.chkt.checkType(self.obs_source, [str, None], 'obs_source')
         pyt.chkt.checkType(self.ndim, [int, None], 'ndim')
         self.isAccumulated = self.name in ['olr', 'prec']
         self.isMultiLevel = self.name in ['u', 'v', 'w', 't', 'q', 'z', 'r']

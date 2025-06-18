@@ -1,9 +1,12 @@
 from driver import safe_runner
 import pytools as pyt
 from reader import Reader
-import traceback
 import numpy as np
 import os
+
+'''
+todo: prec is limited to tropical bands for CMORPH but the values are extrapolated outside
+'''
 
 
 def run(cases, dataDir, option):
@@ -82,6 +85,9 @@ def _run_variable(cases, dataDir, variable, option):
 
         # read model total
         modTotal = reader.read_mod_total(case.model, member, variable, case.model.numLeads)
+        if modTotal is None:
+            print('[fatal] no model total data is read')
+            return
 
         if not skipRaw:
             scoresRaw = _cal_scores(validAnom.vals, (modTotal - validClim).vals)
@@ -99,6 +105,9 @@ def _run_variable(cases, dataDir, variable, option):
             modClim = reader.read_mod_clim(
                 case.model, 0, variable, case.model.numLeads, case.model.climYears
             )
+            if modClim is None:
+                print('[fatal] no model clim data is read')
+                return
         else:
             modClim = None
 

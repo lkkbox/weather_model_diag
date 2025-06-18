@@ -39,7 +39,9 @@ class Reader:
         data = Data()
         data.vals, data.dims = pyt.rt.obsReader.total(variable.name, minMaxs, source)
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
-        return self._regrid_xy(data)
+
+        data = self._post_proc(data, variable)
+        return data
 
 
     def read_obs_clim(self, variable, timeRange, climYears=[2001, 2020], source=None):
@@ -56,8 +58,9 @@ class Reader:
 
         data.vals = data.vals[indClim, :]
         data.dims[0] = timeRequest
-        return self._regrid_xy(data)
 
+        data = self._post_proc(data, variable)
+        return data
 
     def obs_to_valid(self, obs, model):
         data = Data()
@@ -80,10 +83,13 @@ class Reader:
             model.name, self.modelDataType, variable.name, minMaxs,
             model.initTimes, [member], rootDir=self.modDir
         )
+        if data.vals is None:
+            return None
         data.vals = np.squeeze(data.vals, axis=1) # member
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
-        return self._regrid_xy(data)
 
+        data = self._post_proc(data, variable)
+        return data
 
     def read_mod_clim(self, model, member, variable, numLeads, climYears):
         minMaxs = self._get_glb_min_maxs(variable.ndim, [0, numLeads-0.01])
@@ -92,10 +98,13 @@ class Reader:
             model.name, self.modelDataType, variable.name, minMaxs,
             model.initTimes, [member], climYears, rootDir=self.modDir
         )
+        if data.vals is None:
+            return None
         data.vals = np.squeeze(data.vals, axis=1) # member
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
-        return self._regrid_xy(data)
 
+        data = self._post_proc(data, variable)
+        return data
 
     def _get_glb_min_maxs(self, ndim, time):
         minMaxs = [[None] *2 ] * ndim
@@ -111,3 +120,15 @@ class Reader:
         return data
 
 
+    def _post_proc(self, data, variable):
+        data = self._regrid_xy(data)
+
+        if variable.name == 'mslp': # fix the mslp value/units :((
+            for i in range(data.vals.shape[0]):
+                mean = np.nanmean(data.vals[i, :])
+                if mean > 1000 * 10:
+                    data.vals[i, :] /= 100 # -> hPa
+                elif mean < 1000 / 10: # GEPSv3 correction :((
+                    data.vals[i, :] *= 100 
+
+        return data
