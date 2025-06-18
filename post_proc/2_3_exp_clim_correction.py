@@ -29,7 +29,7 @@ def main():
 
 def run(varname, ndim):
     dataRootDir = '../../data/processed'
-    initTime = pyt.tt.ymd2float(2009, 1, 26)
+    initTime = pyt.tt.ymd2float(2001, 1, 25)
     ctl_name = 'exp_mjo-DEVM21' # adjusting target
     rfc_name = 're_GEPSv3_CFSR' # base line
     iMember = 0
