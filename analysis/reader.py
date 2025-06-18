@@ -62,18 +62,27 @@ class Reader:
         data = self._post_proc(data, variable)
         return data
 
-    def obs_to_valid(self, obs, model):
-        data = Data()
-        data.vals = np.nan * np.ones((model.numInitTimes, model.numLeads, self.NY, self.NX))
+
+    def obs_to_valid(self, obs, model, initTimes):
+        valid = Data()
+        valid.vals = np.nan * np.ones((*model.vals.shape[:2], *obs.vals.shape[1:]))
         obsTime = list(obs.dims[0])
-        for iInit in range(model.numInitTimes):
-            for iLead in range(model.numLeads):
-                validDate = model.initTimes[iInit] + iLead
+        for iInit in range(model.vals.shape[0]):
+            for iLead in range(model.vals.shape[1]):
+                validDate = initTimes[iInit] + iLead
                 index = obsTime.index(validDate)
-                data.vals[iInit, iLead, :] = obs.vals[index, :]
+                valid.vals[iInit, iLead, :] = obs.vals[index, :]
 
-        return data
+        valid.dims = obs.dims
 
+        if model.vals.ndim == 4: # 3d variables
+            return valid, model
+
+        elif model.vals.ndim != 5:
+            raise NotImplementedError(f'help, how to deal with ndim = {model.vals.ndim}')
+
+        valid, model = self._conform_axis(valid, model, -3) # find the shared level
+        return valid, model
 
 
     def read_mod_total(self, model, member, variable, numLeads):
@@ -88,6 +97,10 @@ class Reader:
         data.vals = np.squeeze(data.vals, axis=1) # member
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
 
+        if variable.ndim == 4:
+            data.dims[1] /= 100 # Pa -> hPa
+
+        # padding nans for lead dimension
         if data.vals.shape[1] < numLeads: # not enough lead (TGFS PW :(( )
             print(f'[warning] data is padded by nans because expecting {numLeads=}, but only received {data.vals.shape[1]}')
             delta = numLeads - data.vals.shape[1]
@@ -118,6 +131,31 @@ class Reader:
 
         data = self._post_proc(data, variable)
         return data
+
+
+    def _conform_axis(self, data1, data2, axis):
+        # find the shared dimension values
+        dim1 = list(data1.dims[axis])
+        dim2 = list(data2.dims[axis])
+        dimShared = [d for d in dim1 if d in dim2]
+        
+        # get the index for each data
+        ind1 = [dim1.index(d) for d in dimShared]
+        ind2 = [dim2.index(d) for d in dimShared]
+
+        # extract the indices of each data
+        data1.vals = np.swapaxes(data1.vals, 0, axis)
+        data2.vals = np.swapaxes(data2.vals, 0, axis)
+        data1.vals = data1.vals[ind1, :]
+        data2.vals = data2.vals[ind2, :]
+        data1.vals = np.swapaxes(data1.vals, 0, axis)
+        data2.vals = np.swapaxes(data2.vals, 0, axis)
+
+        # overwrite the dimension values
+        data1.dims[axis] = dimShared
+        data2.dims[axis] = dimShared
+
+        return data1, data2
 
     def _get_glb_min_maxs(self, ndim, time):
         minMaxs = [[None] *2 ] * ndim
