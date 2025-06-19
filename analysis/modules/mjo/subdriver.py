@@ -72,6 +72,7 @@ def _run_plot(cases, dataDir, figDir, option):
 class Option_Phase_Diagram():
     lead_means: list = None
     init_means: list = None
+    colors: list = None
 
     def __post_init__(self):
         # set defaults
@@ -79,14 +80,24 @@ class Option_Phase_Diagram():
             self.lead_means = [slice(i * 5, (i+1) * 5) for i in range(6)]
         if self.init_means is None:
             self.init_means = [slice(i * 5, (i+1) * 5) for i in range(6)]
+        if self.colors is None:
+            self.colors = [
+                'tab:blue', 'tab:orange', 'tab:green', 'tab:red', 
+                'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
+                'tab:olive', 'tab:cyan'
+            ]
+
 
         # check types
         pyt.chkt.checkType(self.lead_means, list, 'lead_means')
         pyt.chkt.checkType(self.init_means, list, 'init_means')
+        pyt.chkt.checkType(self.colors, list , 'colors')
         for lead_mean in self.lead_means:
             pyt.chkt.checkType(lead_mean, slice, 'lead_mean')
         for init_mean in self.init_means:
             pyt.chkt.checkType(init_mean, slice, 'init_mean')
+
+        self.colors = CircularYielder(self.colors)
             
 
 @dataclass
@@ -98,8 +109,25 @@ class Option_Score_Diagram():
     yticks: list = None
     do_rmse: bool = True
     do_acc: bool = True
+    mpl_line_opts: list = None
+    legend_opts: dict = None
 
     def __post_init__(self):
+        if self.mpl_line_opts is None:
+            self.mpl_line_opts = [
+                {'color': f'tab:{color}','linestyle': linestyle}
+                for color in [
+                    'blue', 'orange', 'green', 'red', 
+                    'purple', 'brown', 'pink', 'gray', 
+                    'olive', 'cyan', 
+                ]
+                for linestyle in ['-', '--', '-.', ':']
+            ]
+        if self.legend_opts is None:
+            self.legend_opts = {'loc': 'outside right upper'}
+
+        pyt.chkt.checkType(self.legend_opts, dict , 'legend_opts')
+        pyt.chkt.checkType(self.mpl_line_opts, list , 'mpl_line_opts')
         pyt.chkt.checkType(self.xlim, [list, None], 'xlim')
         pyt.chkt.checkType(self.ylim_rmse, [list, None], 'ylim_rmse')
         pyt.chkt.checkType(self.ylim_acc, [list, None], 'ylim_acc')
@@ -107,6 +135,8 @@ class Option_Score_Diagram():
         pyt.chkt.checkType(self.yticks, [list, None], 'yticks')
         pyt.chkt.checkType(self.do_acc, bool, 'do_acc')
         pyt.chkt.checkType(self.do_rmse, bool, 'do_rmse')
+        for e in self.mpl_line_opts:
+            pyt.chkt.checkType(e, dict, 'elements in mpl_line_opts')
         if isinstance(self.xlim, list):
             if len(self.xlim) != 2:
                 raise ValueError('len(xlim) must be 2')
@@ -116,6 +146,8 @@ class Option_Score_Diagram():
         if isinstance(self.ylim_rmse, list):
             if len(self.ylim_rmse) != 2:
                 raise ValueError('len(ylim_rmse) must be 2')
+        self.mpl_line_opts = CircularYielder(self.mpl_line_opts)
+
 
 @dataclass
 class Option(): # defalt options
@@ -135,4 +167,22 @@ class Option(): # defalt options
         pyt.chkt.checkType(self.do_data, bool, 'do_data')
         pyt.chkt.checkType(self.do_plot, bool, 'do_plot')
     
+
+class CircularYielder():
+    def __init__(self, items):
+        self.items = items
+        self.numItems = len(items)
+        self.nextInd = 0
+
+    def __call__(self):
+        output = self.items[self.nextInd]
+        self.nextInd += 1
+
+        if self.nextInd == self.numItems:
+            self.nextInd = 0
+
+        return output
+
+    def reset(self):
+        self.nextInd = 0
 

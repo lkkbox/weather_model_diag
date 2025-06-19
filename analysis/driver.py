@@ -15,24 +15,55 @@ import os
 @dataclass
 class Model():
     name: str
-    initTime0: float
-    numInitTimes: int
     members: list
     numLeads: int
     hasClim: bool
+    initTime0: float = None
+    numInitTimes: int = None
+    stepInitTimes: float = None
+    initTimes: list = None
     climYears: list = None
 
     def __post_init__(self):
         pyt.chkt.checkType(self.name, str, 'name')
-        pyt.chkt.checkType(self.initTime0, float, 'initTime0')
-        pyt.chkt.checkType(self.numInitTimes, int, 'numInitTimes')
         pyt.chkt.checkType(self.members, list, 'members')
         pyt.chkt.checkType(self.numLeads, int, 'numLeads')
         pyt.chkt.checkType(self.hasClim, bool, 'hasClim')
+        pyt.chkt.checkType(self.initTime0, [float, None], 'initTime0')
+        pyt.chkt.checkType(self.numInitTimes, [int, None], 'numInitTimes')
+        pyt.chkt.checkType(self.stepInitTimes, [float, int, None], 'stepInitTimes')
+        pyt.chkt.checkType(self.initTimes, [list, None] , 'initTimes')
         pyt.chkt.checkType(self.climYears, [list, None], 'climYears')
         if not self.hasClim and self.climYears is not None:
             raise ValueError('hasClim=True but climYears is not None')
-        self.initTimes = [self.initTime0 + i for i in range(self.numInitTimes)]
+
+        # validate initTimes is constructed legally
+        method1 = self.initTimes is not None
+        method2 = (
+            self.initTime0 is not None
+            or self.numInitTimes is not None
+            or self.stepInitTimes is not None
+        )
+
+        if (method1 and method2) or (not method1 and not method2 ):
+            raise ValueError('The construction method for initTimes is invalid. Only allow specifying excatly one of (initTimes), (initTime0, numInitTimes, stepInitTimes).')
+
+        if method2:
+            if self.initTime0 is None:
+                raise ValueError('must specify one of the (initTimes, initTime0)')
+            if self.numInitTimes is None:
+                self.numInitTimes = 1
+            if self.stepInitTimes is None:
+                self.stepInitTimes = 1
+            self.initTimes = [
+                self.initTime0 + i * self.stepInitTimes for i in range(self.numInitTimes)
+            ]
+
+        if method1:
+            self.initTime0 = self.initTimes[0]
+            self.numInitTimes = len(self.initTimes)
+
+        # derived variables
         self.numMembers = len(self.members)
 
 

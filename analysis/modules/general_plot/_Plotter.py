@@ -6,8 +6,6 @@ import numpy as np
 from dataclasses import dataclass
 import os
 
-from pytools import plottools
-
 
 class Plotter():
     def __init__(self, cases, plot_set, data_dir, fig_dir_root):
