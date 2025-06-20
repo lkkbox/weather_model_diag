@@ -7,8 +7,8 @@ def main():
     initTime0 = pyt.tt.ymd2float(2025, 1, 1)
     numInitTimes = 90
 
-    initTime0 = pyt.tt.ymd2float(2025, 2, 1)
-    numInitTimes = 10
+    # initTime0 = pyt.tt.ymd2float(2025, 2, 1)
+    # numInitTimes = 10
      
     climYears = [2006, 2020]
 
@@ -16,10 +16,10 @@ def main():
         driver.Module(
             name='scores',
             option={
-                'do_data': True,
-                'do_plot': False,
+                'do_data': False,
+                'do_plot': True,
                 'variables':[
-                    # {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
+                    {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'v10', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
@@ -27,7 +27,7 @@ def main():
                     # {'name': 'olr', 'obs_source': None},
                     # {'name': 'prec', 'obs_source': None},
                     # {'name': 'u'},
-                    {'name': 'v'},
+                    # {'name': 'v'},
                     # {'name': 'w'},
                     # {'name': 't'},
                     # {'name': 'q'},

@@ -65,6 +65,9 @@ def _run_region(cases, dataDir, figDir, option, variable, level, region):
                     area = ct.lonlat2area(dims[-1], dims[-2])
                     s_mean = np.nanmean(data * area, axis=(-1, -2)) / np.nanmean(area, axis=(-1, -2))
                     s_std = np.nanstd(data * area, axis=(-1, -2)) / np.nanmean(area, axis=(-1, -2))
-                    scores[iCase][iMember][iBc][iScore] = data
-                    print(data.shape)
+                    scores[iCase][iMember][iBc][iScore] = {
+                        'mean': s_mean,
+                        'std': s_std,
+                    }
+
 
