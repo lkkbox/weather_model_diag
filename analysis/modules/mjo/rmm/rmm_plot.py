@@ -199,10 +199,11 @@ class Rmm_plotter():
                     ax.plot(x, score, **line_opt)
 
                 # plot ensemble mean
-                line_opt = line_opts()
-                if 'label' not in line_opt:
-                    line_opt['label'] = f'{case.name}, ensmn'
-                ax.plot(x, score_ensmn, **line_opt)
+                if self.option.score_diagram.add_ensmean:
+                    line_opt = line_opts()
+                    if 'label' not in line_opt:
+                        line_opt['label'] = f'{case.name}, ensmn'
+                    ax.plot(x, score_ensmn, **line_opt)
 
             if iax == 0:
                 fig.legend(**self.option.score_diagram.legend_opts)

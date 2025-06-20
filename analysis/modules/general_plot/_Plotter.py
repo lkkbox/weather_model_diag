@@ -97,6 +97,7 @@ class Plotter():
         for isubplot, subplot in enumerate(fig.subplots):
             subplot.ax = fig.fig.add_subplot(*subplot.position, **subplot.mpl_opts)
             subplot.isubplot = isubplot
+            subplot.topRightTitle = ''
 
         return fig
 
@@ -117,8 +118,7 @@ class Plotter():
         # draw post plot types
         for fig in self.figs:
             for subplot in fig.subplots:
-                if self.plot_set.coastline_opts is not None:
-                    pyt.pt.plotcoast(subplot.ax, **self.plot_set.coastline_opts)
+                self._post_draw_ax_features(subplot)
 
 
         for fig in self.figs:
@@ -183,7 +183,7 @@ class Plotter():
                 if plot_type.amean:
                     slicex = pyt.ct.value2Slice(x, *plot_type.amean[:2])
                     slicey = pyt.ct.value2Slice(y, *plot_type.amean[-2:])
-                    self.top_right_title[iax] += f' amean={np.nanmean(z[slicey, slicex]):+.1E}'
+                    subplot.topRightTitle += f' amean={np.nanmean(z[slicey, slicex]):+.1E}'
 
                 # plot
                 if not isVecPlot:
@@ -232,6 +232,23 @@ class Plotter():
             subplot.title = f'({chr(subplot.isubplot+97)}) {name}'
         pyt.pt.titleCorner(subplot.ax, subplot.title)
     
+                
+    def _post_draw_ax_features(self, subplot):
+        if self.plot_set.coastline_opts is not None:
+            pyt.pt.plotcoast(subplot.ax, **self.plot_set.coastline_opts)
+
+        if subplot.topRightTitle is not None:
+            pyt.pt.titleCorner(
+                subplot.ax, subplot.topRightTitle, cornerIndex=[1, 1],
+                horizontalalignment='right',
+            )
+
+        if self.plot_set.draw_box is not None:
+            x = [self.plot_set.draw_box[i  ] for i in [0, 0, 1, 1, 0]]
+            y = [self.plot_set.draw_box[i+2] for i in [0, 1, 1, 0, 0]]
+            opts = self.plot_set.draw_box[-1]
+            subplot.ax.plot(x, y, **opts)
+
 
     def shading(self, subplot, x, y, z, plot_type):
         if plot_type.levels is None:
@@ -270,8 +287,7 @@ class Plotter():
         raise NotImplementedError('line')
 
 
-    def vector(self, iax, ax, x, y, u, v, plot_type):
-        irow, icol = self._iax_to_irow_icol(iax)
+    def vector(self, subplot, x, y, u, v, plot_type):
         xskip= int(len(x) / plot_type.nxPerPanel)
         yskip= int(len(y) / plot_type.nyPerPanel)
         xx = x[::xskip]
@@ -279,10 +295,10 @@ class Plotter():
         uu = pyt.ct.smooth( pyt.ct.smooth(u, yskip, -2), xskip, -1)[::yskip, ::xskip]
         vv = pyt.ct.smooth( pyt.ct.smooth(v, yskip, -2), xskip, -1)[::yskip, ::xskip]
 
-        handle = ax.quiver(xx, yy, uu, vv, **plot_type.matplotlib_opts)
+        handle = subplot.ax.quiver(xx, yy, uu, vv, **plot_type.matplotlib_opts)
         
         # set up the vector size to follow the first panel
-        if iax == 0:
+        if subplot.index == 1:
             attrs = ['angles', 'pivot', 'scale', 'scale_units', 'units',
                      'width', 'headwidth', 'headlength', 'headaxislength',
                      'minshaft', 'minlength']

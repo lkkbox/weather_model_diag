@@ -111,17 +111,18 @@ class Option_Score_Diagram():
     do_acc: bool = True
     mpl_line_opts: list = None
     legend_opts: dict = None
+    add_ensmean: bool = True
 
     def __post_init__(self):
         if self.mpl_line_opts is None:
             self.mpl_line_opts = [
                 {'color': f'tab:{color}','linestyle': linestyle}
+                for linestyle in ['-', '--', '-.', ':']
                 for color in [
                     'blue', 'orange', 'green', 'red', 
-                    'purple', 'brown', 'pink', 'gray', 
-                    'olive', 'cyan', 
+                    # 'purple', 'brown', 'pink', 'gray', 
+                    # 'olive', 'cyan', 
                 ]
-                for linestyle in ['-', '--', '-.', ':']
             ]
         if self.legend_opts is None:
             self.legend_opts = {'loc': 'outside right upper'}
@@ -135,6 +136,7 @@ class Option_Score_Diagram():
         pyt.chkt.checkType(self.yticks, [list, None], 'yticks')
         pyt.chkt.checkType(self.do_acc, bool, 'do_acc')
         pyt.chkt.checkType(self.do_rmse, bool, 'do_rmse')
+        pyt.chkt.checkType(self.add_ensmean, bool , 'add_ensmean')
         for e in self.mpl_line_opts:
             pyt.chkt.checkType(e, dict, 'elements in mpl_line_opts')
         if isinstance(self.xlim, list):

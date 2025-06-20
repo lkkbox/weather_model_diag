@@ -30,43 +30,61 @@ def main():
     ]
 
     modules = [
-        driver.Module(
-            name='mjo',
-            option={
-                'do_data': True,
-                'do_plot': True,
-                'score_diagram': {
-                    'xlim': [1, 45],
-                    'xticks': [1, 7, 14, 21, 28, 35, 42, 45],
-                    'ylim_rmse': [0, 1.8],
-                    'do_acc': False,
-                }
-            }
-        ),
         # driver.Module(
-        #     name='general_plot',
+        #     name='mjo',
         #     option={
-        #         'numCases' : len(cases),
-        #         'plot_sets': [
-        #             *get_ps_olr_hov(),
-        #             # *get_ps_prec_map,
-        #             # *get_ps_vintDivUv_map(),
-        #             # *get_ps_vintq_map(),
-        #             # *get_ps_vintq_hov(),
-        #         ],
-        #     },
+        #         'do_data': True,
+        #         'do_plot': True,
+        #         'score_diagram': {
+        #             'xlim': [1, 45],
+        #             'xticks': [1, *list(range(5, 40+5, 5)), 45],
+        #             'ylim_rmse': [0, 3],
+        #             'do_acc': False,
+        #             'add_ensmean': False,
+        #         },
+        #         'phase_diagram': {
+        #             'lead_means': [slice(i*5 , i*5+5) for i in range(9)]
+        #         }
+        #     }
         # ),
+        driver.Module(
+            name='general_plot',
+            option={
+                'numCases': len(cases),
+                'plot_sets': [
+                    *get_ps_olr_hov(),
+                    *get_ps_prec_hov(),
+                    *get_ps_vintq_hov(),
+                    *get_ps_vintq_map(),
+                    *get_ps_vintDivUv_map(),
+                ],
+            },
+        ),
     ]
 
     driver.run(cases, modules, dataDir, figDir)
 
 def get_ps_vintDivUv_map():
+    area = [120, 160, -8, 5]
     return [
         {
-            'fig_title': rf'sfc-700hPa <$\nabla$u> [1E-6] init(2009-01-26) lead({leads}, {leade})',
-            'fig_name': f'map_vintDiv_l{leads}-{leade}.png',
-            'fig_opts': {'figsize': (8, 6), 'layout': 'constrained'},
-            'nrows_ncols': [3, 2],
+            'figs': [
+                {
+                    'title': fr'sfc-700hPa <$\nabla\cdot$u> init(2009-01-26) lead({leads}, {leade}])',
+                    'name': f'map_vintDiv_l{leads}-{leade}.png',
+                    'mpl_opts': {'figsize': (8, 6), 'layout': 'constrained'},
+                    'dim_means': [leads-1, leade-1],
+                }
+                for leads, leade in [
+                    (1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30),
+                    (1, 10)
+                ]
+            ],
+            'subplots': [
+                {'position': [3, 2, i+1]}
+                for i in range(5)
+            ],
+            'figs_dim_by': 0,
             'world_tick_dx': 20,
             'world_tick_dy': 4,
             'ylim': [-12, 12],
@@ -74,13 +92,13 @@ def get_ps_vintDivUv_map():
             'fontsize_xlabel': 8,
             'fontsize_ylabel': 8,
             'coastline_opts': {'color': 'k', 'linewidth': 0.9},
-            'draw_box': [110, 140, -8, 0, {'color': 'k', 'linewidth': 1}],
+            'draw_box': [*area, {'color': 'k', 'linewidth': 1}],
             'shadings': [
                 {
                     'variable': 'u',
                     'variable2': 'v',
                     'xy_axis': [-1, -2],
-                    'minMaxs': [[leads-1, leade-1], [700, 1000], [-15, 15], [80, 180]],
+                    'minMaxs': [[0, 45], [700, 1000], [-15, 15], [80, 180]],
                     'total_anomaly': 'anomaly',
                     'math': lambda z: z * -1e6,
                     'operators': ['div2d_lonlat', 'vertical_pressure_mean'],
@@ -88,7 +106,7 @@ def get_ps_vintDivUv_map():
                     'colormap': pyt.colormaps.nclColormap('GreenMagenta16'),
                     'smooths': [5, 5],
                     'contour_opts': {'linestyles': '-', 'colors': 'grey', 'linewidths':0.5},
-                    'amean': [110, 140, -8, 0],
+                    'amean': area,
                 }
             ],
             'vectors': [
@@ -96,22 +114,35 @@ def get_ps_vintDivUv_map():
                     'variable': 'u',
                     'variable2': 'v',
                     'xy_axis': [-1, -2],
-                    'minMaxs': [[leads-1, leade-1], [700, 1000], [-15, 15], [80, 180]],
+                    'minMaxs': [[0, 45], [700, 1000], [-15, 15], [80, 180]],
                     'total_anomaly': 'anomaly',
                     # 'smooths': [5, 5],
                 }
             ],
         }
-        for leads, leade in [(1, 5), (6, 10), (11, 15),]
     ]
 
 def get_ps_vintq_map():
+    area = [120, 160, -8, 5]
     return [
         {
-            'fig_title': f'sfc-700hPa <q> init(2009-01-26) lead({leads}, {leade}])',
-            'fig_name': f'map_vintq_d{d}.png',
-            'fig_opts': {'figsize': (8, 6), 'layout': 'constrained'},
-            'nrows_ncols': [3, 2],
+            'figs': [
+                {
+                    'title': f'sfc-700hPa <q> init(2009-01-26) lead({leads}, {leade}])',
+                    'name': f'map_vintq_l{leads}-{leade}.png',
+                    'mpl_opts': {'figsize': (8, 6), 'layout': 'constrained'},
+                    'dim_means': [leads-1, leade-1],
+                }
+                for leads, leade in [
+                    (1, 5), (6, 10), (11, 15), (16, 20), (21, 25), (26, 30),
+                    (1, 10)
+                ]
+            ],
+            'subplots': [
+                {'position': [3, 2, i+1]}
+                for i in range(5)
+            ],
+            'figs_dim_by': 0,
             'world_tick_dx': 20,
             'world_tick_dy': 4,
             'ylim': [-12, 12],
@@ -119,12 +150,12 @@ def get_ps_vintq_map():
             'fontsize_xlabel': 8,
             'fontsize_ylabel': 8,
             'coastline_opts': {'color': 'k', 'linewidth': 0.9},
-            'draw_box': [120, 140, -5, 5, {'color': 'k', 'linewidth': 1}],
+            'draw_box': [*area, {'color': 'k', 'linewidth': 1}],
             'shadings': [
                 {
                     'variable': 'q',
                     'xy_axis': [-1, -2],
-                    'minMaxs': [[leads-1, leade-1], [700, 1000], [-15, 15], [80, 180]],
+                    'minMaxs': [[0, 45], [700, 1000], [-15, 15], [80, 180]],
                     'total_anomaly': 'anomaly',
                     # 'math': lambda z: z * 1000,
                     'math': lambda z: z / 9.8,
@@ -133,20 +164,23 @@ def get_ps_vintq_map():
                     'colormap': pyt.colormaps.nclColormap('CBR_coldhot'),
                     'smooths': [2.5, 2.5],
                     'contour_opts': {'linestyles': '-', 'colors': 'grey', 'linewidths':0.5},
-                    'amean': [120, 140, -5, 5],
+                    'amean': area,
                 }
             ],
         }
-        for d in range(2)
     ]
 
 
 def get_ps_vintq_hov():
     return [
         {
-            'fig_title': 'sfc-700hPa <q> init(2009-01-26) lat(5S-5N)',
-            'fig_name': f'lon_time_vintq.png',
-            'fig_opts': {'figsize': (6.4, 4.8), 'layout': 'constrained'},
+            'figs': [
+                {
+                    'title': 'sfc-700hPa <q> init(2009-01-26) lat(5S-5N)',
+                    'name': f'lon_time_vintq.png',
+                    'mpl_opts': {'figsize': (6.4, 4.8), 'layout': 'constrained'},
+                },
+            ],
             'world_tick_dx': 30,
             'fontsize_ticks': 6,
             'fontsize_xlabel': 8,
@@ -156,13 +190,13 @@ def get_ps_vintq_hov():
                 {
                     'variable': 'q',
                     'xy_axis': [-1, -4],
-                    'minMaxs': [[0, 30], [700, 1000], [-5, 5], [60, 210]],
+                    'minMaxs': [[0, 45], [700, 1000], [-5, 5], [60, 210]],
                     'total_anomaly': 'anomaly',
                     'math': lambda z: z / 9.8,
                     'operators': ['vertical_pressure_integration'],
                     'levels': pyt.ct.mirror([0.2, 0.5, 1, 2, 3, 4]),
                     'colormap': pyt.colormaps.nclColormap('CBR_coldhot'),
-                    'smooths': [7, 5],
+                    'smooths': [5, 5],
                     'contour_opts': {'linestyles': '-', 'colors': 'grey', 'linewidths':0.5},
                 }
             ],
@@ -192,7 +226,7 @@ def get_ps_olr_hov():
                     'total_anomaly': total_anomaly,
                     'levels': levels,
                     'colormap': colormap,
-                    # 'smooths': [5, 5],
+                    'smooths': [5, 5],
                     'contour_opts': {'colors': 'grey', 'linewidths':0.5},
                 }
             ],
@@ -200,7 +234,7 @@ def get_ps_olr_hov():
         for total_anomaly, levels, colormap in [
             (
                 'anomaly', 
-                pyt.ct.mirror([5, 10, 20, 30, 60]), 
+                pyt.ct.mirror([10, 20, 30, 45, 60]), 
                 pyt.colormaps.nclColormap('sunshine_diff_12lev'),
             ),
             (
@@ -252,11 +286,15 @@ def get_ps_olr_map():
     ]
 
 def get_ps_prec_hov():
-    return [
+    return  [
         {
-            'fig_title': 'Prec init(2009-01-26) lat(10S-10N)',
-            'fig_name': f'lon_time_prec_{total_anomaly}.png',
-            'fig_opts': {'figsize': (6.4, 4.8), 'layout': 'constrained'},
+            'figs': [
+                {
+                    'title': 'Prec init(2009-01-26) lat(15S-15N)',
+                    'name': f'lon_time_prec_{total_anomaly}.png',
+                    'mpl_opts': {'figsize': (6.4, 4.8), 'layout': 'constrained'},
+                },
+            ],
             'world_tick_dx': 30,
             'fontsize_ticks': 6,
             'fontsize_xlabel': 8,
@@ -266,28 +304,29 @@ def get_ps_prec_hov():
                 {
                     'variable': 'prec',
                     'xy_axis': [-1, -3],
-                    'minMaxs': [[0, 30], [-10, 10], [60, 210]],
+                    'minMaxs': [[0, 45], [-15, 15], [60, 210]],
                     'total_anomaly': total_anomaly,
                     'levels': levels,
                     'colormap': colormap,
-                    'smooths': [7, 5],
-                    'contour_opts': {'linestyles': '-', 'colors': 'grey', 'linewidths':0.5},
+                    'smooths': [5, 5],
+                    'contour_opts': {'colors': 'grey', 'linewidths':0.5},
                 }
             ],
         }
         for total_anomaly, levels, colormap in [
             (
                 'anomaly', 
-                pyt.ct.mirror([1, 3, 5, 7, 9, 12]), 
+                pyt.ct.mirror([1, 3, 5, 9, 14, 20]), 
                 pyt.colormaps.nclColormap('precip_diff_12lev'),
             ),
             (
                 'total',
-                [0.5, 1, 2, 3, 4, 6, 9, 12, 15, 20],
+                [0.5,  2,  4, 8, 12, 16, 20, 25],
                 pyt.colormaps.nclColormap('precip2_17lev'),
             ),
         ]
     ]
+
 
 def get_ps_prec_map():
     return [
