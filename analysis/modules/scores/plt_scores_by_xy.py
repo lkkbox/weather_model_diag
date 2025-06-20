@@ -8,7 +8,7 @@ def run(cases, dataDir, figDir, option):
     for variable in option.variables:
 
         if variable.ndim == 4:
-            levels = option.levels
+            levels = option.plot.levels
         else:
             levels = [None]
 

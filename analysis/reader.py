@@ -81,7 +81,7 @@ class Reader:
         elif model.vals.ndim != 5:
             raise NotImplementedError(f'help, how to deal with ndim = {model.vals.ndim}')
 
-        valid, model = self._conform_axis(valid, model, -3) # find the shared level
+        valid, model = self.conform_axis(valid, model, -3) # find the shared level
         return valid, model
 
 
@@ -129,11 +129,14 @@ class Reader:
         data.vals = np.squeeze(data.vals, axis=1) # member
         data.dims[0] = np.floor(data.dims[0]) # set all time to floor
 
+        if variable.ndim == 4:
+            data.dims[1] /= 100 # Pa -> hPa
+
         data = self._post_proc(data, variable)
         return data
 
 
-    def _conform_axis(self, data1, data2, axis):
+    def conform_axis(self, data1, data2, axis):
         # find the shared dimension values
         dim1 = list(data1.dims[axis])
         dim2 = list(data2.dims[axis])

@@ -3,6 +3,7 @@ import pytools as pyt
 from reader import Reader
 import numpy as np
 import os
+from . import path
 
 '''
 todo: prec is limited to tropical bands for CMORPH but the values are extrapolated outside
@@ -68,6 +69,7 @@ def _run_variable(cases, dataDir, variable, option):
 
     obsTotal = reader.read_obs_total(variable, obsTimeRange)
     obsClim = reader.read_obs_clim(variable, obsTimeRange)
+    obsTotal, obsClim = reader.conform_axis(obsTotal, obsClim, axis=-3)
     obsAnom = obsTotal - obsClim
 
     @safe_runner
@@ -112,6 +114,9 @@ def _run_variable(cases, dataDir, variable, option):
             if modClim is None:
                 print('[fatal] no model clim data is read')
                 return
+
+            # make sure the level are consistent to the observation's
+            modClim, obsClim = reader.conform_axis(modClim, obsClim, axis=-3)
         else:
             modClim = None
 

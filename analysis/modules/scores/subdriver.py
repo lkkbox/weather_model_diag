@@ -70,7 +70,7 @@ class Option_Plot():
 @dataclass
 class Option(): 
     do_data: bool = True
-    do_figs: bool = True
+    do_plot: bool = True
     plot: dict = None
     variables: list = None
     regrid_delta_x: float = 1
@@ -91,6 +91,8 @@ class Option():
                     ('u10', 'era5_daymean_nrt'),
                     ('v10', 'era5_daymean_nrt'),
                     ('t2m', 'era5_daymean_nrt'),
+                    ('olr', None),
+                    ('prec', None),
                 ]
             ]
         
@@ -112,7 +114,7 @@ class Option():
 
         # check types
         checkType(self.do_data, bool , 'do_data')
-        checkType(self.do_data, bool , 'do_figs')
+        checkType(self.do_data, bool , 'do_plot')
         checkType(self.variables, list, 'variables')
         checkType(self.regrid_delta_x, [float, int], 'regrid_delta_x')
         checkType(self.regrid_delta_y, [float, int], 'regrid_delta_y')
@@ -131,6 +133,6 @@ def run(cases, dataDir, figDir, option: Option):
         run_data = safe_runner(greeter(cal_scores_by_xy.run))
         run_data(cases, dataDir, option)
 
-    if option.do_figs:
+    if option.do_plot:
         run_figs = safe_runner(greeter(plt_scores_by_xy.run))
         run_figs(cases, dataDir, figDir, option)
