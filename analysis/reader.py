@@ -71,6 +71,9 @@ class Reader:
             for iLead in range(model.vals.shape[1]):
                 validDate = initTimes[iInit] + iLead
                 index = obsTime.index(validDate)
+                # print(validDate)
+                # print(obsTime)
+                # exit()
                 valid.vals[iInit, iLead, :] = obs.vals[index, :]
 
         valid.dims = obs.dims

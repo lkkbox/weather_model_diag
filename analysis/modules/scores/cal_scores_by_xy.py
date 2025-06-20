@@ -116,7 +116,8 @@ def _run_variable(cases, dataDir, variable, option):
                 return
 
             # make sure the level are consistent to the observation's
-            modClim, obsClim = reader.conform_axis(modClim, obsClim, axis=-3)
+            if variable.ndim == 4:
+                modClim, obsClim = reader.conform_axis(modClim, obsClim, axis=-3)
         else:
             modClim = None
 
