@@ -140,9 +140,12 @@ class Reader:
 
 
     def conform_axis(self, data1, data2, axis):
+        out1 = Data(data1.vals, data1.dims)
+        out2 = Data(data2.vals, data2.dims)
+
         # find the shared dimension values
-        dim1 = list(data1.dims[axis])
-        dim2 = list(data2.dims[axis])
+        dim1 = list(out1.dims[axis])
+        dim2 = list(out2.dims[axis])
         dimShared = [d for d in dim1 if d in dim2]
         
         # get the index for each data
@@ -150,18 +153,18 @@ class Reader:
         ind2 = [dim2.index(d) for d in dimShared]
 
         # extract the indices of each data
-        data1.vals = np.swapaxes(data1.vals, 0, axis)
-        data2.vals = np.swapaxes(data2.vals, 0, axis)
-        data1.vals = data1.vals[ind1, :]
-        data2.vals = data2.vals[ind2, :]
-        data1.vals = np.swapaxes(data1.vals, 0, axis)
-        data2.vals = np.swapaxes(data2.vals, 0, axis)
+        out1.vals = np.swapaxes(out1.vals, 0, axis)
+        out2.vals = np.swapaxes(out2.vals, 0, axis)
+        out1.vals = out1.vals[ind1, :]
+        out2.vals = out2.vals[ind2, :]
+        out1.vals = np.swapaxes(out1.vals, 0, axis)
+        out2.vals = np.swapaxes(out2.vals, 0, axis)
 
         # overwrite the dimension values
-        data1.dims[axis] = dimShared
-        data2.dims[axis] = dimShared
+        out1.dims[axis] = dimShared
+        out2.dims[axis] = dimShared
 
-        return data1, data2
+        return out1, out2
 
     def _get_glb_min_maxs(self, ndim, time):
         minMaxs = [[None] *2 ] * ndim

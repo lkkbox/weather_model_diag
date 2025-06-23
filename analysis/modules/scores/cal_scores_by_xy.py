@@ -4,6 +4,7 @@ from reader import Reader
 import numpy as np
 import os
 from . import path
+import copy
 
 '''
 todo: prec is limited to tropical bands for CMORPH but the values are extrapolated outside
@@ -67,14 +68,17 @@ def _run_variable(cases, dataDir, variable, option):
     numLeads = max([case.model.numLeads for case in cases])
     obsTimeRange = reader.get_valid_time_range(initTimes, numLeads)
 
-    obsTotal = reader.read_obs_total(variable, obsTimeRange)
-    obsClim = reader.read_obs_clim(variable, obsTimeRange)
-    obsTotal, obsClim = reader.conform_axis(obsTotal, obsClim, axis=-3)
-    obsAnom = obsTotal - obsClim
+    OBSTOTAL = reader.read_obs_total(variable, obsTimeRange)
+    OBSCLIM = reader.read_obs_clim(variable, obsTimeRange)
+    OBSTOTAL, OBSCLIM = reader.conform_axis(OBSTOTAL, OBSCLIM, axis=-3)
+    OBSANOM = OBSTOTAL - OBSCLIM
 
     @safe_runner
-    def run_member(model, member, modClim):
+    def run_member(model, member, MODCLIM, OBSCLIM):
         print(f'        {variable.name}, {model.name}, {member=}')
+        obsAnom = copy.deepcopy(OBSANOM)
+        obsClim = copy.deepcopy(OBSCLIM)
+        modClim = copy.deepcopy(MODCLIM)
 
         # skip if the file already exists
         skipRaw, skipBC = _get_skips(dataDir, model, member, variable)
@@ -108,21 +112,21 @@ def _run_variable(cases, dataDir, variable, option):
     for case in cases:
         # read model clim
         if case.model.hasClim:
-            modClim = reader.read_mod_clim(
+            MODCLIM = reader.read_mod_clim(
                 case.model, 0, variable, case.model.numLeads, case.model.climYears
             )
-            if modClim is None:
+            if MODCLIM is None:
                 print('[fatal] no model clim data is read')
                 return
 
             # make sure the level are consistent to the observation's
             if variable.ndim == 4:
-                modClim, obsClim = reader.conform_axis(modClim, obsClim, axis=-3)
+                MODCLIM, obsClim = reader.conform_axis(MODCLIM, OBSCLIM, axis=-3)
         else:
-            modClim = None
+            MODCLIM = None
 
         for member in case.model.members:
-            run_member(case.model, member, modClim)
+            run_member(case.model, member, MODCLIM, OBSCLIM)
 
 
 def _get_skips(dataDir, model, member, variable):

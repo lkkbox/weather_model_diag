@@ -20,13 +20,13 @@ def main():
                     # {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'olr', 'obs_source': None},
-                    {'name': 'prec', 'obs_source': None},
-                    # {'name': 'u'},
-                    # {'name': 'v'},
-                    # {'name': 'w'},
-                    # {'name': 't'},
-                    # {'name': 'q'},
-                    # {'name': 'z'},
+                    # {'name': 'prec', 'obs_source': None},
+                    {'name': 'u'},
+                    {'name': 'v'},
+                    {'name': 'w'},
+                    {'name': 't'},
+                    {'name': 'q'},
+                    {'name': 'z'},
                 ],
             },
         ),
@@ -48,11 +48,13 @@ def main():
             ),
         )
         for caseName, modelName, members, numLeads, hasClim, climYears in [
-            ('CWA_TGFS', 'CWA_TGFS', [0], 17, False, None),
-            ('NCEP_CTRL', 'NCEP_CTRL', [0], 31, False, None),
+            ('CWA_TGFS', 'CWA_TGFS', [0], 17, False, None),   # ok
+            ('NCEP_CTRL', 'NCEP_CTRL', [0], 31, False, None), # bad
             ('NCEP_ENSAVG', 'NCEP_ENSAVG', [0], 31, False, None),
-            ('CWA_GEPSv3', 'CWA_GEPSv3', [*list(range(21)), -21], 45, True, climYears),
-            ('CWA_GEPSv2', 'CWA_GEPSv2', [*list(range(33)), -33], 45, False, None),
+            ('CWA_GEPSv3', 'CWA_GEPSv3', [-21, 0], 45, True, climYears),
+            ('CWA_GEPSv2', 'CWA_GEPSv2', [-33, 0], 45, False, None),
+            # ('CWA_GEPSv3', 'CWA_GEPSv3', [*list(range(21)), -21], 45, True, climYears),
+            # ('CWA_GEPSv2', 'CWA_GEPSv2', [*list(range(33)), -33], 45, False, None),
         ]
     ]
 
