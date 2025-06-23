@@ -13,14 +13,16 @@ def main():
         driver.Module(
             name='scores',
             option={
+                'do_data_1day': False,
+                'do_data_7dma': True,
                 'do_plot': False,
                 'variables':[
-                    # {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
-                    # {'name': 'v10', 'obs_source': 'era5_daymean_nrt'},
-                    # {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
-                    # {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
-                    # {'name': 'olr', 'obs_source': None},
-                    # {'name': 'prec', 'obs_source': None},
+                    {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
+                    {'name': 'v10', 'obs_source': 'era5_daymean_nrt'},
+                    {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
+                    {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
+                    {'name': 'olr', 'obs_source': None},
+                    {'name': 'prec', 'obs_source': None},
                     {'name': 'u'},
                     {'name': 'v'},
                     {'name': 'w'},

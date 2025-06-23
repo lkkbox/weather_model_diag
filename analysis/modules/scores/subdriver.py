@@ -1,6 +1,7 @@
 from driver import greeter
 from driver import safe_runner
-from . import cal_scores_by_xy
+from . import cal_scores_by_xy_1day
+from . import cal_scores_by_xy_7dma
 from . import plt_scores_by_xy
 
 import pytools as pyt
@@ -69,7 +70,8 @@ class Option_Plot():
 
 @dataclass
 class Option(): 
-    do_data: bool = True
+    do_data_1day: bool = True
+    do_data_7dma: bool = True
     do_plot: bool = True
     plot: dict = None
     variables: list = None
@@ -113,12 +115,12 @@ class Option():
             self.plot['levels'] = [10, 30, 50, 100, 200, 300, 500, 700, 850, 925, 1000]
 
         # check types
-        checkType(self.do_data, bool , 'do_data')
-        checkType(self.do_data, bool , 'do_plot')
+        checkType(self.do_data_1day, bool , 'do_data_1day')
+        checkType(self.do_data_7dma, bool , 'do_data_7dma')
+        checkType(self.do_plot, bool , 'do_plot')
         checkType(self.variables, list, 'variables')
         checkType(self.regrid_delta_x, [float, int], 'regrid_delta_x')
         checkType(self.regrid_delta_y, [float, int], 'regrid_delta_y')
-        checkType(self.do_data, bool, 'do_data')
         checkType(self.plot, [dict, None], 'plot')
         [checkType(variable, dict, 'variable') for variable in self.variables]
 
@@ -129,8 +131,12 @@ class Option():
 
 
 def run(cases, dataDir, figDir, option: Option):
-    if option.do_data:
-        run_data = safe_runner(greeter(cal_scores_by_xy.run))
+    if option.do_data_1day:
+        run_data = safe_runner(greeter(cal_scores_by_xy_1day.run))
+        run_data(cases, dataDir, option)
+
+    if option.do_data_7dma:
+        run_data = safe_runner(greeter(cal_scores_by_xy_7dma.run))
         run_data(cases, dataDir, option)
 
     if option.do_plot:
