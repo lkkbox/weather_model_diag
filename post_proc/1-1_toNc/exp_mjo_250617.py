@@ -28,10 +28,10 @@ def main():
         ]
     ]:
         for caseName in [
-            'exp_mjo-M22MPKH',
-            'exp_mjo-M22MPKHS9',
             'exp_mjo-DEVM21',
             'exp_mjo-DEVM21S9',
+            'exp_mjo-M22MPKH',
+            'exp_mjo-M22MPKHS9',
         ]:
             converter.run(initTime, caseName, iMember=0)
 
@@ -52,6 +52,15 @@ def getVariables():
                 outputTypes=[outputType_daily],
             )
             for name in ['u10', 'v10', 't2m', 'mslp', 'pw']
+        ],
+        *[
+            Variable(
+                name=name,
+                levels=None,
+                leads=leads_3d_inst,
+                outputTypes=[outputType_daily, outputType_6hr],
+            )
+            for name in ['lh']
         ],
         *[
             Variable(
