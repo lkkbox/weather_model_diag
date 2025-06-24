@@ -4,88 +4,13 @@ import copy
 from matplotlib import pyplot as plt
 import matplotlib
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 
 @dataclass
-class Option_Plot_Set():
-    shadings: list = None # see Option_Shading
-    contours: list = None # see Option_Contour
-    vectors: list = None # see Option_Vector
-    lines: list = None # see Option_Line
-
-    figs: list = None # see Option_Fig
-    subplots: list = None # see Option_Subplot
-
-    draw_box: list = None # [lonw, lone, lats, latn, {line options}]
-    coastline_opts: dict = None # None: dont't draw, {lineoptions}: draw
-
-    xlim: list = None # [minx, maxx]
-    ylim: list = None
-    world_tick_dx: int = None # int: draw degrees as delta x; None: don't draw degrees
-    world_tick_dy: int = None
-    xlabel: str = None
-    ylabel: str = None
-
-    fontsize_ticks: int = None
-    fontsize_xlabel: int = None
-    fontsize_ylabel: int = None
-    
-
-    def __post_init__(self):
-        # set defaults
-        if self.shadings is None: self.shadings = []
-        if self.contours is None: self.contours = []
-        if self.vectors is None: self.vectors = []
-        if self.lines is None: self.lines = []
-
-        # check types
-        checkType(self.figs, list, 'figs')
-        checkType(self.subplots, [list, None], 'subplots')
-
-        checkType(self.shadings, list, 'shading')
-        checkType(self.contours, list, 'contour')
-        checkType(self.vectors, list, 'vector')
-        checkType(self.lines, list, 'line')
-
-        checkType(self.xlim, [list, None], 'xlim')
-        checkType(self.ylim, [list, None], 'ylim')
-        checkType(self.xlabel, [str, None], 'xlabel')
-        checkType(self.ylabel, [str, None], 'ylabel')
-        checkType(self.world_tick_dx, [int, None], 'world_tick_dx')
-        checkType(self.world_tick_dy, [int, None], 'world_tick_dy')
-        checkType(self.fontsize_ticks, [int, float, None], 'fontsize_xtick')
-        checkType(self.fontsize_xlabel, [int, float, None], 'fontsize_xlabel')
-        checkType(self.fontsize_ylabel, [int, float, None], 'fontsize_ylabel')
-        checkType(self.coastline_opts, [dict, None], 'coastline_opts')
-        checkType(self.draw_box, [list, None], 'draw_box')
-
-        # check more types
-        if not self.figs:
-            raise ValueError('"figs" must contain at least 1 element.')
-
-        if self.draw_box is not None:
-            if len(self.draw_box) != 5:
-                raise ValueError('"draw_box" must be 5 elements [lonw, lone, lats, latn, line_options]')
-            for e in self.draw_box[:4]:
-                checkType(e, [int, float], 'first 4 elements of "draw_box" (lon/lat bounds)')
-            checkType(self.draw_box[4], dict, 'The 5th element of "draw_box" (line_options)')
-
-        # convert to class objects
-        self.figs = [Option_Fig(**fig) for fig in self.figs]
-        self.subplots = [Option_Subplot(**subplot) for subplot in self.subplots]
-        self.shadings = [Option_Shading(**shading) for shading in self.shadings]
-        self.contours = [Option_Contour(**contour) for contour in self.contours]
-        self.vectors = [Option_Vector(**vector) for vector in self.vectors]
-        self.lines = [Option_Line(**line) for line in self.lines]
-
-
-
-@dataclass
-class Option_Fig():
+class Fig():
     name: str = 'out.png' # file name
     title: str = None
-    dim_means: list = None
     mpl_opts: dict = field(default_factory=dict) # figure options sent to matplotlib
 
     def __post_init__(self):
@@ -105,15 +30,26 @@ class Option_Fig():
                 raise ValueError('values in dim_means bust be 2 elements')
             for e in self.dim_means:
                 checkType(e, [int, float], 'elements in dim_mean must be float/int')
-            
 
 @dataclass
-class Option_Subplot():
+class Subplot():
     position: list[int] = None # [nrows, ncols, index]
     dim_means: list = None
     title: str = None
     mpl_opts: dict = field(default_factory=dict) # ax options sent to matplotlib
     
+    xlim: list = None # [minx, maxx]
+    ylim: list = None
+    world_tick_dx: int = None # int: draw degrees as delta x; None: don't draw degrees
+    world_tick_dy: int = None
+    xlabel: str = None
+    ylabel: str = None
+
+    fontsize_ticks: int = None
+    fontsize_xlabel: int = None
+    fontsize_ylabel: int = None
+    coastline_opts: dict = None # None: dont't draw, {mpl_line_options}: draw
+
     def __post_init__(self):
         if self.position is None:
             self.position = [1, 1, 1]
@@ -143,59 +79,81 @@ class Option_Subplot():
 
 
 @dataclass
-class _Option_Plot_Type():
+class _Plot_Type():
     data: np.ndarray
     dims: list
-
-    math: callable = None
-    smooths: list = None
-    operators: list = None
 
     def __post_init__(self):
         checkType(self.data, np.ndarray, 'data')
         checkType(self.dims, list, 'dims')
 
-        checkType(self.math, [callable, None] , 'math')
-        checkType(self.smooths, [list, None] , 'smooths')
-        checkType(self.operators, [list, None] , 'operators')
-
-        assert len(self.smooths) == 2, f'len(smooths) must be 2, but found {len(self.smooths)}'
-
         assert self.data.ndim == 4, f'data must be with ndim=4, but found {self.data.ndim}'
         assert len(self.dims) == 2, f'dims must be with len=4, but found {len(self.dims)}'
         nx1, ny1 = (self.data.shape[i] for i in [-1, -2])
-        nx2, ny2 = (self.dims[i] for i in [0, 1])
+        nx2, ny2 = (len(self.dims[i]) for i in [0, 1])
         assert nx1 == nx2, f'mismatch length at x-axis, data={nx1}, dim={nx2}'
         assert ny1 == ny2, f'mismatch length at y-axis, data={ny1}, dim={ny2}'
 
 
 @dataclass
-class Option_Line(_Option_Plot_Type):
+class PlotSet():
+    figs: list[Fig]
+    subplots: list[Subplot]
+    plotTypes: list[_Plot_Type]
+
+    def __post_init__(self):
+        # check types
+        checkType(self.figs, list, 'figs')
+        checkType(self.subplots, list, 'subplots')
+        checkType(self.plotTypes, list, 'plotTypes')
+
+        # check more types
+        if not self.figs:
+            raise ValueError('"figs" must contain at least 1 element.')
+        if not self.subplots:
+            raise ValueError('"subplots" must contain at least 1 element.')
+        if not self.plotTypes:
+            raise ValueError('"plotTypes" must contain at least 1 element.')
+
+        for fig in self.figs:
+            checkType(fig, Fig, '"fig" in the list "figs"')
+        for subplot in self.subplots:
+            checkType(subplot, Fig, '"subplot" in the list "subplots"')
+        for plotType in self.plotTypes:
+            checkType(plotType, Fig, '"plotType" in the list "plotTypes"')
+
+
+@dataclass
+class Line(_Plot_Type):
     def __post_init__(self):
         super().__post_init__()
     
 
 @dataclass
-class Option_Shading(_Option_Plot_Type):
+class Contourfill(_Plot_Type):
     levels: list = None
-    colormap: str = None
-    contour_opts: dict = None
+    colormap: str = 'viridis'
+    mpl_colorbar_opts: dict = field(default_factory=dict)
+    mpl_contour_opts: dict = None # None: don't draw contour edge
 
     def __post_init__(self):
         super().__post_init__()
-        checkType(self.contour_opts, [dict, None], 'contour_opts')
+        checkType(self.levels, [list, None], 'levels')
+        checkType(self.colormap, str, 'colormap')
+        checkType(self.mpl_colorbar_opts, dict, 'mpl_colorbar_opts')
+        checkType(self.mpl_contour_opts, [dict, None], 'mpl_contour_opts')
 
 
 @dataclass
-class Option_Contour(_Option_Plot_Type):
-    levels: list = None
+class Contour(_Plot_Type):
+    mpl_opts: list = None
 
     def __post_init__(self):
         super().__post_init__()
 
 
 @dataclass
-class Option_Vector(_Option_Plot_Type):
+class Vector(_Plot_Type):
     nxPerPanel: int = 15
     nyPerPanel: int = 15
     matplotlib_opts: dict = field(default_factory=dict)
@@ -208,12 +166,8 @@ class Option_Vector(_Option_Plot_Type):
 
 
 class Plotter():
-    def __init__(self, cases, plot_set, data_dir, fig_dir_root):
+    def __init__(self, cases, plotSet, data_dir, fig_dir_root):
         matplotlib.use('Agg') # don't start interactive plots
-        from .subdriver import Option_Shading
-        from .subdriver import Option_Vector
-        from .subdriver import Option_Contour
-        from .subdriver import Option_Line
 
         # spamming settings to local space
         self.cases = cases
@@ -221,10 +175,10 @@ class Plotter():
         self.data_dir = data_dir
         self.figs = plot_set.figs
 
-        self.Option_Shading = Option_Shading
-        self.Option_Vector = Option_Vector
-        self.Option_Contour = Option_Contour
-        self.Option_Line = Option_Line
+        self.Contourfill = Contourfill
+        self.Vector = Vector
+        self.Contour = Contour
+        self.Line = Line
         self.plot_types = [
             *self.plot_set.shadings,
             *self.plot_set.vectors,
@@ -235,10 +189,10 @@ class Plotter():
             'auto': self._read_auto,
         }
         self.fn_map = {
-            self.Option_Shading: self.shading,
-            self.Option_Contour: self.contour,
-            self.Option_Line: self.line,
-            self.Option_Vector: self.vector,
+            self.Contourfill: self.shading,
+            self.Contour: self.contour,
+            self.Line: self.line,
+            self.Vector: self.vector,
         }
 
         # ---- validate the read_method
@@ -328,7 +282,7 @@ class Plotter():
 
         
     def _run_plot_type(self, plot_type):
-        isVecPlot = isinstance(plot_type, self.Option_Vector)
+        isVecPlot = isinstance(plot_type, self.Vector)
 
         # read data
         datas1 = self._read_datas(plot_type, i_variable=0)
