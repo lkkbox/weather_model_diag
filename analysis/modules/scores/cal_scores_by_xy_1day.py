@@ -179,7 +179,7 @@ def _get_output_dir(dataDir, model, member):
 
     return pyt.tt.float2format(
         model.initTime0,
-        f'{scoresDir}/{model.name}/E{member:03d}/%y%m%d/{model.numInitTimes:04d}'
+        f'{scoresDir}/{model.name}/E{member:03d}/%y%m%d/{model.numInitTimes:04d}/1day'
     )
 
 def _get_output_path(dataDir, model, member, variable, rawOrBC):

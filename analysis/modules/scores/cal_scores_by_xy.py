@@ -27,8 +27,10 @@ def run(cases, dataDir, option):
     # create output directories
     for case in cases:
         for member in case.model.members:
-            _create_output_dir(dataDir, case.model, member)
-
+            if option.do_data_1day:
+                _create_output_dir(dataDir, case.model, member, '1day')
+            if option.do_data_7dma:
+                _create_output_dir(dataDir, case.model, member, '7dma')
 
     # run by variables
     for variable in option.variables:
@@ -38,17 +40,26 @@ def run(cases, dataDir, option):
 @safe_runner
 def _run_variable(cases, dataDir, variable, option):
     print(f'         variable = {variable.name}')
+    ndmas = []
+    if option.do_data_1day:
+        ndmas.append('1day')
+    if option.do_data_7dma:
+        ndmas.append('7dma')
 
     # check if we can skip this variable
-    canSkip = True
-    for case in cases:
-        for member in case.model.members:
-            skipRaw, skipBC = _get_skips(dataDir, case.model, member, variable)
-            if not skipRaw or not skipBC:
-                canSkip = False
+    if option.force:
+        canSkip = False
+    else:
+        canSkip = True
+        for case in cases:
+            for member in case.model.members:
+                skipRaw, skipBC = _get_skips(dataDir, case.model, member, variable, ndmas)
+                if not skipRaw or not skipBC:
+                    canSkip = False
+                    break
+            if not canSkip:
                 break
-        if not canSkip:
-            break
+
 
     if canSkip:
         print('all output paths are found')
@@ -72,42 +83,55 @@ def _run_variable(cases, dataDir, variable, option):
     OBSCLIM = reader.read_obs_clim(variable, obsTimeRange)
     OBSTOTAL, OBSCLIM = reader.conform_axis(OBSTOTAL, OBSCLIM, axis=-3)
     OBSANOM = OBSTOTAL - OBSCLIM
-    OBSANOM.vals = pyt.ct.smooth(OBSANOM.vals, 7, 0)
 
     @safe_runner
     def run_member(model, member, MODCLIM, OBSCLIM):
         print(f'        {variable.name}, {model.name}, {member=}')
-        obsAnom = copy.deepcopy(OBSANOM)
-        obsClim = copy.deepcopy(OBSCLIM)
-        modClim = copy.deepcopy(MODCLIM)
-
         # skip if the file already exists
-        skipRaw, skipBC = _get_skips(dataDir, model, member, variable)
-        if skipRaw and skipBC:
+        if not option.force:
+            skipRaw, skipBC = _get_skips(dataDir, model, member, variable, ndmas)
+        else:
+            skipRaw = False
+            skipBC = not model.hasClim
+
+        if skipRaw and skipBC and not option.force:
             print('all output files already exists')
             return
 
         # read model total
-        modTotal = reader.read_mod_total(case.model, member, variable, case.model.numLeads)
-        modTotal.vals = pyt.ct.smooth(modTotal.vals, 7, 1)
-
-        if modTotal is None:
+        MODTOTAL = reader.read_mod_total(case.model, member, variable, case.model.numLeads)
+        if MODTOTAL is None:
             print('[fatal] no model total data is read')
             return
 
-        # rearrange obs data to valid (time) -> (initTime, lead)
-        validAnom, modTotal = reader.obs_to_valid(obsAnom, modTotal, model.initTimes)
-        validClim, modTotal = reader.obs_to_valid(obsClim, modTotal, model.initTimes)
+        for ndma in ndmas:
+            obsAnom = copy.deepcopy(OBSANOM)
+            obsClim = copy.deepcopy(OBSCLIM)
+            modClim = copy.deepcopy(MODCLIM)
+            modTotal = copy.deepcopy(MODTOTAL)
 
-        if not skipRaw:
-            modAnom = modTotal - validClim
-            scoresRaw = _cal_scores(validAnom.vals, modAnom.vals)
-            _save_output(dataDir, model, member, variable, modAnom.dims, scoresRaw, "raw")
+            # rearrange obs data to valid (time) -> (initTime, lead)
+            validAnom, modTotal = reader.obs_to_valid(obsAnom, modTotal, model.initTimes)
+            validClim, modTotal = reader.obs_to_valid(obsClim, modTotal, model.initTimes)
 
-        if not skipBC and modClim is not None:
-            modAnom = modTotal - modClim
-            scoresBC = _cal_scores(validAnom.vals, modAnom.vals)
-            _save_output(dataDir, model, member, variable, modAnom.dims, scoresBC, "BC")
+            if ndma == '7dma':
+                validAnom.vals = pyt.ct.smooth(validAnom.vals, 7, 1)
+                validClim.vals = pyt.ct.smooth(validClim.vals, 7, 1)
+                modTotal.vals = pyt.ct.smooth(modTotal.vals, 7, 1)
+                if not skipBC and modClim is not None:
+                    modClim.vals = pyt.ct.smooth(modClim.vals, 7, 1)
+            elif ndma != '1day':
+                raise ValueError(f'what is {ndma=}????')
+
+            if not skipRaw:
+                modAnom = modTotal - validClim
+                scoresRaw = _cal_scores(validAnom.vals, modAnom.vals)
+                _save_output(dataDir, model, member, variable, modAnom.dims, scoresRaw, "raw", ndma)
+
+            if not skipBC and modClim is not None:
+                modAnom = modTotal - modClim
+                scoresBC = _cal_scores(validAnom.vals, modAnom.vals)
+                _save_output(dataDir, model, member, variable, modAnom.dims, scoresBC, "BC", ndma)
 
 
     # loop over case and members
@@ -135,11 +159,22 @@ def _run_variable(cases, dataDir, variable, option):
             run_member(case.model, member, MODCLIM, obsClim)
 
 
-def _get_skips(dataDir, model, member, variable):
-    outPathRaw = _get_output_path(dataDir, model, member, variable, "raw")
-    outPathBC = _get_output_path(dataDir, model, member, variable, "BC")
-    skipRaw = os.path.exists(outPathRaw)
-    skipBC = os.path.exists(outPathBC) or (not model.hasClim)
+def _get_skips(dataDir, model, member, variable, ndmas):
+    skipRaw = True
+    for ndma in ndmas:
+        path = _get_output_path(dataDir, model, member, variable, "raw", ndma)
+        if not os.path.exists(path):
+            skipRaw = False
+
+    if not model.hasClim:
+        skipBC = True
+    else:
+        skipBC = True
+        for ndma in ndmas:
+            path = _get_output_path(dataDir, model, member, variable, "BC", ndma)
+            if not os.path.exists(path):
+                skipBC = False
+
     return skipRaw, skipBC
 
 
@@ -158,7 +193,7 @@ def _cal_scores(o, f):
 
     
 
-def _create_output_dir(dataDir, model, member):
+def _create_output_dir(dataDir, model, member, ndma):
     scoresDir = f'{dataDir}/scores'
 
     if not os.path.exists(scoresDir):
@@ -167,14 +202,14 @@ def _create_output_dir(dataDir, model, member):
     if not os.access(scoresDir, os.W_OK):
         raise PermissionError(f'permission denied to write to {dataDir}')
 
-    outputDir = _get_output_dir(dataDir, model, member)
+    outputDir = _get_output_dir(dataDir, model, member, ndma)
     if not os.path.exists(outputDir):
         os.system(f'mkdir -p {outputDir}')
     
     return
 
 
-def _get_output_dir(dataDir, model, member):
+def _get_output_dir(dataDir, model, member, ndma):
     scoresDir = f'{dataDir}/scores'
 
     if not os.path.exists(scoresDir):
@@ -185,23 +220,23 @@ def _get_output_dir(dataDir, model, member):
 
     return pyt.tt.float2format(
         model.initTime0,
-        f'{scoresDir}/{model.name}/E{member:03d}/%y%m%d/{model.numInitTimes:04d}/7dma'
+        f'{scoresDir}/{model.name}/E{member:03d}/%y%m%d/{model.numInitTimes:04d}/{ndma}'
     )
 
-def _get_output_path(dataDir, model, member, variable, rawOrBC):
+def _get_output_path(dataDir, model, member, variable, rawOrBC, ndma):
     if rawOrBC == 'raw':
         suffix = 'raw'
     elif rawOrBC == 'BC':
         suffix = 'bc'
     else:
         ValueError(f'unrecognized option {rawOrBC=}')
-    outDir = _get_output_dir(dataDir, model, member)
+    outDir = _get_output_dir(dataDir, model, member, ndma)
     outPath = f'{outDir}/{variable.name}_{suffix}.nc'
     return outPath
 
 
-def _save_output(dataDir, model, member, variable, dims, scores, rawOrBC):
-    outPath = _get_output_path(dataDir, model, member, variable, rawOrBC)
+def _save_output(dataDir, model, member, variable, dims, scores, rawOrBC, ndma):
+    outPath = _get_output_path(dataDir, model, member, variable, rawOrBC, ndma)
 
     if variable.ndim == 4:
         dimStruct = {

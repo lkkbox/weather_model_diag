@@ -23,13 +23,13 @@ def main():
 
     for initTime in [
         tt.format2float(d, '%Y%m%d') for d in [
-            '20010125',
+            # '20010125',
             '20090126',
         ]
     ]:
         for caseName in [
-            'exp_mjo-DEVM21',
-            'exp_mjo-DEVM21S9',
+            # 'exp_mjo-DEVM21',
+            # 'exp_mjo-DEVM21S9',
             'exp_mjo-M22MPKH',
             'exp_mjo-M22MPKHS9',
         ]:

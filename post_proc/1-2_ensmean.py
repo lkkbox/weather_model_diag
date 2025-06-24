@@ -7,13 +7,14 @@ import traceback
 def main():
     for modelName, numMembers in [
         ('CWA_GEPSv3', 21),
-        ('CWA_GEPSv2', 33),
+        # ('CWA_GEPSv2', 33),
     ]:
         run(modelName, numMembers)
 
 
 def run(modelName, numMembers):
     # settings
+    force = False
     data_dir = '../../data/processed'
 
     initTime0 = pyt.tt.ymd2float(2025, 1, 1)
@@ -21,8 +22,9 @@ def run(modelName, numMembers):
 
     dataType = 'global_daily_1p0'
     varNames = [
-        'u10', 'v10', 't2m', 'prec', 'olr', 'pw', 'mslp',
-        'u', 'v', 't', 'q', 'r', 'z',
+        'mslp'
+        # 'u10', 'v10', 't2m', 'prec', 'olr', 'pw', 'mslp',
+        # 'u', 'v', 't', 'q', 'r', 'z',
     ]
 
     # auto settings
@@ -37,7 +39,7 @@ def run(modelName, numMembers):
         tmpPath = './tmp.nc'
 
 
-        if os.path.exists(desPath):
+        if os.path.exists(desPath) and not force:
             print(f'output path already exists {desPath}')
             return
 
@@ -51,6 +53,9 @@ def run(modelName, numMembers):
 
         # let's write to tmpPath first. only copy the file to destination after complete success.
         os.system(f'cp {srcPath} {tmpPath}')
+        if not os.path.exists(tmpPath):
+            print('failed to copy tmpfile')
+            return
 
         ndim = get_ndim(varName)
         minMaxs = [[None]*2]*ndim
@@ -70,8 +75,7 @@ def run(modelName, numMembers):
 
         # write, copy tmp to des, delete tmp
         pyt.nct.write(tmpPath, varName, dataEnsMean)
-        os.system(f'cp {tmpPath} {desPath}')
-        os.system(f'rm {tmpPath}')
+        os.system(f'mv {tmpPath} {desPath}')
     
 
     # main loop

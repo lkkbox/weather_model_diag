@@ -1,7 +1,6 @@
 from driver import greeter
 from driver import safe_runner
-from . import cal_scores_by_xy_1day
-from . import cal_scores_by_xy_7dma
+from . import cal_scores_by_xy
 from . import plt_scores_by_xy
 
 import pytools as pyt
@@ -73,6 +72,7 @@ class Option():
     do_data_1day: bool = True
     do_data_7dma: bool = True
     do_plot: bool = True
+    force: bool = False
     plot: dict = None
     variables: list = None
     regrid_delta_x: float = 1
@@ -119,6 +119,7 @@ class Option():
         checkType(self.do_data_7dma, bool , 'do_data_7dma')
         checkType(self.do_plot, bool , 'do_plot')
         checkType(self.variables, list, 'variables')
+        checkType(self.force, bool , 'force')
         checkType(self.regrid_delta_x, [float, int], 'regrid_delta_x')
         checkType(self.regrid_delta_y, [float, int], 'regrid_delta_y')
         checkType(self.plot, [dict, None], 'plot')
@@ -131,13 +132,8 @@ class Option():
 
 
 def run(cases, dataDir, figDir, option: Option):
-    if option.do_data_1day:
-        run_data = safe_runner(greeter(cal_scores_by_xy_1day.run))
-        run_data(cases, dataDir, option)
-
-    if option.do_data_7dma:
-        run_data = safe_runner(greeter(cal_scores_by_xy_7dma.run))
-        run_data(cases, dataDir, option)
+    run_data = safe_runner(greeter(cal_scores_by_xy.run))
+    run_data(cases, dataDir, option)
 
     if option.do_plot:
         run_figs = safe_runner(greeter(plt_scores_by_xy.run))
