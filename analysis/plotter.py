@@ -7,37 +7,12 @@ import numpy as np
 from dataclasses import dataclass, field
 import os
 
-@dataclass
-class Fig():
-    name: str = 'out.png' # file name
-    title: str = None
-    mpl_opts: dict = field(default_factory=dict) # figure options sent to matplotlib
 
-    def __post_init__(self):
-        checkType(self.name, str , 'name')
-        checkType(self.title, [str, None] , 'title')
-        checkType(self.mpl_opts, dict , 'mpl_opts')
-        checkType(self.dim_means, [list, None], 'dim_means')
+matplotlib.use('Agg') # don't start interactive plots
 
-        if "layout" not in self.mpl_opts:
-            self.fig_opts = {'layout': 'constrained', **self.fig_opts}
-
-        if '.' not in self.name:
-            raise ValueError('no "." extension found in fig_name')
-
-        if self.dim_means is not None:
-            if len(self.dim_means) != 2:
-                raise ValueError('values in dim_means bust be 2 elements')
-            for e in self.dim_means:
-                checkType(e, [int, float], 'elements in dim_mean must be float/int')
 
 @dataclass
-class Subplot():
-    position: list[int] = None # [nrows, ncols, index]
-    dim_means: list = None
-    title: str = None
-    mpl_opts: dict = field(default_factory=dict) # ax options sent to matplotlib
-    
+class _Ax_Features():
     xlim: list = None # [minx, maxx]
     ylim: list = None
     world_tick_dx: int = None # int: draw degrees as delta x; None: don't draw degrees
@@ -51,31 +26,64 @@ class Subplot():
     coastline_opts: dict = None # None: dont't draw, {mpl_line_options}: draw
 
     def __post_init__(self):
-        if self.position is None:
-            self.position = [1, 1, 1]
+        checkType(self.xlim, [list , None], 'xlim')
+        checkType(self.ylim, [list, None], 'ylim')
+        checkType(self.world_tick_dx, [int, None], 'world_tick_dx')
+        checkType(self.world_tick_dy, [int, None], 'world_tick_dy')
+        checkType(self.xlabel, [str, None], 'xlabel')
+        checkType(self.ylabel, [str, None], 'ylabel')
+        checkType(self.fontsize_ticks, [int, None], 'fontsize_ticks')
+        checkType(self.fontsize_xlabel, [int, None], 'fontsize_xlabel')
+        checkType(self.fontsize_ylabel, [int, None], 'fontsize_ylabel')
+        checkType(self.coastline_opts, [dict, None], 'coastline_opts')
+        
+        if isinstance(self.xlim, list):
+            if len(self.xlim) != 2:
+                raise ValueError('len(xlim) must be 2')
+            [checkType(e, [int, float], 'elements in xlim') for e in self.xlim]
+
+        if isinstance(self.ylim, list):
+            if len(self.ylim) != 2:
+                raise ValueError('len(ylim) must be 2')
+            [checkType(e, [int, float], 'elements in xlim') for e in self.ylim]
+
+
+@dataclass
+class Fig(_Ax_Features):
+    path: str = 'out.png' # file name
+    title: str = None
+    mpl_opts: dict = field(default_factory=dict) # figure options sent to matplotlib
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        checkType(self.path, str, 'path')
+        checkType(self.title, [str, None], 'title')
+        checkType(self.mpl_opts, dict, 'mpl_opts')
+
+        if "layout" not in self.mpl_opts:
+            self.fig_opts = {'layout': 'constrained', **self.mpl_opts}
+
+        self.path = os.path.realpath(self.path)
+        figDir = os.path.dirname(self.path)
+        if not os.access(figDir, os.W_OK):
+            raise PermissionError(f'unable to write to {figDir}')
+
+
+@dataclass
+class Subplot(_Ax_Features):
+    position: list[int] = None # [nrows, ncols, index]
+    title: str = None
+    mpl_opts: dict = field(default_factory=dict) # ax options sent to matplotlib
+
+    def __post_init__(self):
+        super().__post_init__()
 
         checkType(self.position, list, 'position')
-        checkType(self.dim_means, [list, None], 'dim_means')
+        checkType(self.title, [str, None], 'title')
+        checkType(self.mpl_opts, dict, 'mpl_opts')
 
-        if len(self.position) != 3:
-            raise ValueError('position must contains exactly 3 elements')
-
-        for pos in self.position[:2]:
-            checkType(pos, int, 'element in posistion')
-            if pos <= 0:
-                raise ValueError('elements in position must be >= 1')
-
-        checkType(self.position[-1], [int, tuple], 'element in position')
-
-        if self.dim_means is not None:
-            if len(self.dim_means) != 2:
-                raise ValueError('values in dim_means bust be 2 elements')
-            for e in self.dim_means:
-                checkType(e, [int, float], 'elements in dim_mean must be float/int')
-
-        # set up useful constants
-        self.nrows, self.ncols, self.index = self.position
-        self.irow, self.icol = divmod(self.index-1, self.ncols)
+        [checkType(p, int, 'elements in position') for p in self.position]
 
 
 @dataclass
@@ -93,34 +101,6 @@ class _Plot_Type():
         nx2, ny2 = (len(self.dims[i]) for i in [0, 1])
         assert nx1 == nx2, f'mismatch length at x-axis, data={nx1}, dim={nx2}'
         assert ny1 == ny2, f'mismatch length at y-axis, data={ny1}, dim={ny2}'
-
-
-@dataclass
-class PlotSet():
-    figs: list[Fig]
-    subplots: list[Subplot]
-    plotTypes: list[_Plot_Type]
-
-    def __post_init__(self):
-        # check types
-        checkType(self.figs, list, 'figs')
-        checkType(self.subplots, list, 'subplots')
-        checkType(self.plotTypes, list, 'plotTypes')
-
-        # check more types
-        if not self.figs:
-            raise ValueError('"figs" must contain at least 1 element.')
-        if not self.subplots:
-            raise ValueError('"subplots" must contain at least 1 element.')
-        if not self.plotTypes:
-            raise ValueError('"plotTypes" must contain at least 1 element.')
-
-        for fig in self.figs:
-            checkType(fig, Fig, '"fig" in the list "figs"')
-        for subplot in self.subplots:
-            checkType(subplot, Fig, '"subplot" in the list "subplots"')
-        for plotType in self.plotTypes:
-            checkType(plotType, Fig, '"plotType" in the list "plotTypes"')
 
 
 @dataclass
@@ -165,86 +145,50 @@ class Vector(_Plot_Type):
         checkType(self.matplotlib_opts, dict , 'matplotlib_opts')
 
 
-class Plotter():
-    def __init__(self, cases, plotSet, data_dir, fig_dir_root):
-        matplotlib.use('Agg') # don't start interactive plots
+class PlotSet():
+    def __init__(self, figs, subplots, plotTypes):
+        self.figs = figs
+        self.subplots = subplots
+        self.plotTypes = plotTypes
 
-        # spamming settings to local space
-        self.cases = cases
-        self.plot_set = plot_set
-        self.data_dir = data_dir
-        self.figs = plot_set.figs
+        # check types
+        checkType(self.figs, list, 'figs')
+        checkType(self.subplots, list, 'subplots')
+        checkType(self.plotTypes, list, 'plotTypes')
 
-        self.Contourfill = Contourfill
-        self.Vector = Vector
-        self.Contour = Contour
-        self.Line = Line
-        self.plot_types = [
-            *self.plot_set.shadings,
-            *self.plot_set.vectors,
-            *self.plot_set.contours,
-            *self.plot_set.lines,
-        ]
-        self.read_methods = {
-            'auto': self._read_auto,
-        }
-        self.fn_map = {
-            self.Contourfill: self.shading,
-            self.Contour: self.contour,
-            self.Line: self.line,
-            self.Vector: self.vector,
-        }
+        # check more types
+        if not self.figs:
+            raise ValueError('"figs" must contain at least 1 element.')
+        if not self.subplots:
+            raise ValueError('"subplots" must contain at least 1 element.')
+        if not self.plotTypes:
+            raise ValueError('"plotTypes" must contain at least 1 element.')
 
-        # ---- validate the read_method
-        for plot_type in self.plot_types:
-            if plot_type.read_method not in self.read_methods:
-                raise ValueError(f'unrecognized {plot_type.read_method=}')
+        for fig in self.figs:
+            checkType(fig, Fig, '"fig" in the list "figs"')
+        for subplot in self.subplots:
+            checkType(subplot, Subplot, '"subplot" in the list "subplots"')
+        for plotType in self.plotTypes:
+            checkType(plotType, _Plot_Type, '"plotType" in the list "plotTypes"')
 
-        # ---- figure out auto configurations for plot_set
-        if self.plot_set.xlim is None:
-            self.plot_set.xlim =  [
-                min([plot_type.auto_xlim[0] for plot_type in self.plot_types]),
-                max([plot_type.auto_xlim[1] for plot_type in self.plot_types]),
-            ]
-        if self.plot_set.ylim is None:
-            self.plot_set.ylim =  [
-                min([plot_type.auto_ylim[0] for plot_type in self.plot_types]),
-                max([plot_type.auto_ylim[1] for plot_type in self.plot_types]),
-            ]
+        self.numFigs = len(self.figs)
+        self.numSubplots = len(self.subplots)
+        self.numPlotTypes = len(self.plotTypes)
 
-        # initialize fig (and axes inside)
-        fig_dir = f'{fig_dir_root}/general_plot'
-        self.figs = [self._init_fig(fig_dir, fig, ifig) for ifig, fig in enumerate(self.figs)]
+        # # functions for drawing
+        # self.draw_fn_map = {
+        #     Contourfill: self.shading,
+        #     Contour: self.contour,
+        #     Line: self.line,
+        #     Vector: self.vector,
+        # }
 
-        # validating dim_means for case
-        dim_means = [subplot.dim_means for subplot in self.plot_set.subplots]
-        if self.plot_set.subplots_dim_by == 'case':
-            for isubplot, dim_mean in enumerate(dim_means):
-                if dim_mean is None:
-                    dim_mean = [isubplot, isubplot]
-                elif dim_mean[0] != dim_means[1]:
-                    raise ValueError(f'Not supporting average over different cases: "subplot_dim_by=case", {dim_mean=}')
-                elif not isinstance(dim_mean[0], int) or not (0<=dim_mean[0]<self.plot_set._numCases):
-                    raise ValueError(f'dim_mean for cases must be between 0 and {len(self.cases)}, but found {dim_mean[0]} instead.')
+        # create figs
+        for fig in figs:
+            self._init_fig(fig)
 
 
-        dim_means = [fig.dim_means for fig in self.plot_set.figs]
-        if self.plot_set.figs_dim_by == 'case':
-            for ifig, dim_mean in enumerate(dim_means):
-                if dim_mean is None:
-                    dim_mean = [ifig, ifig]
-                elif dim_mean[0] != dim_mean[1]:
-                    raise ValueError(f'Not supporting average over different cases: "fig_dim_by=case", {dim_mean=}')
-                elif not isinstance(dim_mean[0], int) or not (0<=dim_mean[0]<self.plot_set._numCases):
-                    raise ValueError(f'dim_mean for cases must be between 0 and {len(self.cases)}, but found {dim_mean[0]} instead.')
-
-
-    def _init_fig(self, fig_dir, fig, ifig):
-        if not os.path.exists(fig_dir):
-            os.makedirs(fig_dir)
-
-        fig.ifig = ifig
-        fig.path = f'{fig_dir}/{fig.name}'
+    def _init_fig(self, fig):
         fig.fig = plt.figure(**fig.mpl_opts)
         fig.subplots = [copy.copy(subplot) for subplot in self.plot_set.subplots]
 
