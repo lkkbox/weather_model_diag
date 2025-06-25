@@ -179,6 +179,8 @@ def _get_skips(dataDir, model, member, variable, ndmas):
 
 
 def _cal_scores(o, f):
+    o[(np.abs(o) > 1e10)] = np.nan
+    f[(np.abs(f) > 1e10)] = np.nan
     bias = np.nanmean(o - f, axis=0)
     rmse = np.sqrt(np.nanmean((o - f) ** 2, axis=0))
     acc = np.nansum(f * o, axis=0) \
