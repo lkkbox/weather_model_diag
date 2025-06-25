@@ -20,9 +20,12 @@ def run(modelName, numMembers):
     initTime0 = pyt.tt.ymd2float(2025, 1, 1)
     numInits = 90
 
+    initTime0 = pyt.tt.ymd2float(2025, 3, 10)
+    numInits = 1
+
     dataType = 'global_daily_1p0'
     varNames = [
-        'mslp'
+        'u'
         # 'u10', 'v10', 't2m', 'prec', 'olr', 'pw', 'mslp',
         # 'u', 'v', 't', 'q', 'r', 'z',
     ]

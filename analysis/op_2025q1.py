@@ -14,13 +14,13 @@ def main():
             name='scores',
             option={
                 'do_data_1day': True,
-                'do_data_7dma': True,
+                'do_data_7dma': False,
                 'do_plot': False,
                 'force': True,
                 'variables':[
                     # {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'v10', 'obs_source': 'era5_daymean_nrt'},
-                    {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
+                    # {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
                     {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
                     # {'name': 'olr', 'obs_source': None},
                     # {'name': 'prec', 'obs_source': None},
@@ -54,10 +54,10 @@ def main():
             # ('CWA_TGFS', 'CWA_TGFS', [0], 17, False, None),  
             # ('NCEP_CTRL', 'NCEP_CTRL', [0], 36, False, None),
             # ('NCEP_ENSAVG', 'NCEP_ENSAVG', [0], 36, False, None),
-            # ('CWA_GEPSv3', 'CWA_GEPSv3', [-21, 0], 45, True, climYears),
+            ('CWA_GEPSv3', 'CWA_GEPSv3', [-21, 0], 45, True, climYears),
             # ('CWA_GEPSv2', 'CWA_GEPSv2', [-33, 0], 45, False, None),
 
-            ('CWA_GEPSv3', 'CWA_GEPSv3', [-21], 45, True, climYears),
+            # ('CWA_GEPSv3', 'CWA_GEPSv3', [-21], 45, True, climYears),
         ]
     ]
 

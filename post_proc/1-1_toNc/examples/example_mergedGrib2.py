@@ -100,7 +100,9 @@ def getVariables():
             varName='olr',
             leads=list(range(6, 840+1, 6)),
             outputTypes=outputTypes_3d_acc,
-            grib2Matches=[':ULWRF:top of atmosphere:'],
+            grib2Matches=[
+                f':NLWRF:top of atmosphere:{day}-{day+1} day ave fcst:' for day in range(45)
+            ],
             numRecordsPerFile=1,
             cdoVarName='sulwrf',
             shiftHour=3,

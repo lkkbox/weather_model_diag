@@ -1,49 +1,68 @@
 #!/nwpr/gfs/com120/.conda/envs/rd/bin/python
+import driver as driver
 import pytools as pyt
-import plotter
-import numpy as np
 
 
 def main():
-    # ---- read data
-    data, dims = pyt.rt.obsReader.anomaly(
-        'olr', [
-            [pyt.tt.ymd2float(2001, 1, 25), pyt.tt.ymd2float(2001, 2, 23)],
-            [-30, 30],
-            [60, 210]
-        ]
-    )
-    time, lat, lon = dims
+    initTime0 = pyt.tt.ymd2float(2025, 2, 1)
+    numInitTimes = 10
+     
+    climYears = [2006, 2020]
 
-    nt, ny, nx = data.shape
-    numFigs = 1
-    numMeanDays = 5
-    numSubplots = nt // numMeanDays
-
-    shadingData = np.nan * np.ones((numFigs, numSubplots, ny, nx))
-    for iPanel in range(numSubplots):
-        ts = iPanel * numMeanDays
-        te = (iPanel + 1) * numMeanDays
-        shadingData[0, iPanel, :] = np.mean(data[0, ts:te, :], axis=0)
-
-    # ---- creating plots
-    shading = plotter.Contourfill(
-        shadingData, [lon, lat]
-    )
-
-    fig = plotter.Fig(
-        path='/nwpr/gfs/com120/messy/a.png'
-    )
-
-    subplots = [
-        plotter.Subplot(
-            position=[3, 2, i],
-        )
-        for i in range(6)
+    modules = [
+        driver.Module(
+            name='scores',
+            option={
+                'do_data_1day': True,
+                'do_data_7dma': False,
+                'do_plot': False,
+                'force': True,
+                'variables':[
+                    # {'name': 'u10', 'obs_source': 'era5_daymean_nrt'},
+                    # {'name': 'v10', 'obs_source': 'era5_daymean_nrt'},
+                    # {'name': 't2m', 'obs_source': 'era5_daymean_nrt'},
+                    # {'name': 'mslp', 'obs_source': 'era5_daymean_nrt'},
+                    # {'name': 'olr', 'obs_source': None},
+                    # {'name': 'prec', 'obs_source': None},
+                    # {'name': 'u'},
+                    # {'name': 'v'},
+                    # {'name': 'w'},
+                    # {'name': 't'},
+                    {'name': 'q'},
+                    # {'name': 'z'},
+                ],
+            },
+        ),
     ]
 
-    plotSet = plotter.PlotSet([fig], subplots, [shading])
-    #
+    dataDir = '../../data'
+    figDir = '../../figs'
+    cases = [
+        driver.Case(
+            name=caseName,
+            model = driver.Model(
+                name=modelName,
+                initTime0=initTime0,
+                numInitTimes=numInitTimes,
+                members=members,
+                hasClim=hasClim,
+                numLeads=numLeads,
+                climYears=climYears,
+            ),
+        )
+        for caseName, modelName, members, numLeads, hasClim, climYears in [
+            ('CWA_TGFS', 'CWA_TGFS', [0], 17, False, None),  
+            # ('NCEP_CTRL', 'NCEP_CTRL', [0], 36, False, None),
+            # ('NCEP_ENSAVG', 'NCEP_ENSAVG', [0], 36, False, None),
+            # ('CWA_GEPSv3', 'CWA_GEPSv3', [-21, 0], 45, True, climYears),
+            # ('CWA_GEPSv2', 'CWA_GEPSv2', [-33, 0], 45, False, None),
+
+            # ('CWA_GEPSv3', 'CWA_GEPSv3', [-21], 45, True, climYears),
+        ]
+    ]
+
+    driver.run(cases, modules, dataDir, figDir)
+
 
 if __name__ == '__main__':
     main()

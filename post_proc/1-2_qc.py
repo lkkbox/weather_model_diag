@@ -11,16 +11,21 @@ def main():
     #
     # ---- settings
     modelName = 'CWA_GEPSv3'
-    varName = 'mslp'
+    varName = 'u'
+
     initTimes = [tt.ymd2float(2025, 1, 1) + i for i in range(90)]
-    initTimes = [tt.ymd2float(2025, 3, 14) + i for i in range(2)]
+    members = [-21]
+
+    initTimes = [tt.ymd2float(2025, 3, 10) + i for i in range(1)]
+    members = [*list(range(21)), -21]
+
     dataType = 'global_daily_1p0'
     minMaxs = [
-        [0, 10],
-        [-5, 5],
+        [0, 45],
+        [200_00, 200_00],
+        [45, 70],
         [120, 160],
     ]
-    members = [*list(range(21)), -21]
 
 
 
@@ -43,8 +48,8 @@ def main():
     nanstds_norm = nanstds - np.nanmean(nanstds)
     stdmeans = np.nanstd(means_norm)
     stdstds = np.nanstd(nanstds_norm)
-    cri = 1
-    suspicous = ((np.isnan(means)) | (means_norm > cri * stdmeans) | (nanstds_norm > cri * stdstds))
+    cri_suspicious = 1
+    suspicous = ((np.isnan(means)) | (means_norm > cri_suspicious * stdmeans) | (nanstds_norm > cri_suspicious * stdstds))
 
     for iInit, init  in enumerate(initTimes):
         for iMem, mem in enumerate(members):
