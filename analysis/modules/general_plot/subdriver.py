@@ -95,7 +95,8 @@ class Option_Plot_Set():
     fontsize_ticks: int = None
     fontsize_xlabel: int = None
     fontsize_ylabel: int = None
-    
+
+    grid_on: bool = False
 
     def __post_init__(self):
         # set defaults
@@ -114,6 +115,7 @@ class Option_Plot_Set():
 
         pyt.chkt.checkType(self.with_obs, bool, 'with_obs')
 
+        pyt.chkt.checkType(self.grid_on, bool , 'grid_on')
 
         pyt.chkt.checkType(self.shadings, list, 'shading')
         pyt.chkt.checkType(self.contours, list, 'contour')
@@ -359,15 +361,27 @@ class _Option_Plot_Type():
 
         # figure out negative values of axes
         ndim = len(self.minMaxs)
-        self.xy_axis = [i if i >=0 else ndim + i for i in self.xy_axis]
-        self.auto_xlim = self.minMaxs[self.xy_axis[0]]
-        self.auto_ylim = self.minMaxs[self.xy_axis[1]]
+        self.xy_axis = [ndim + i if i is not None and i <0 else i for i in self.xy_axis]
+        if self.xy_axis[0] is not None:
+            self.auto_xlim = self.minMaxs[self.xy_axis[0]]
+        else:
+            self.auto_xlim = None
 
+        if self.xy_axis[1] is not None:
+            self.auto_ylim = self.minMaxs[self.xy_axis[1]]
+        else:
+            self.auto_ylim = None
 
 @dataclass
 class Option_Line(_Option_Plot_Type):
+    mpl_opts: dict = field(default_factory=dict)
     def __post_init__(self):
         super().__post_init__()
+        pyt.chkt.checkType(self.mpl_opts, dict , 'mpl_opts')
+
+        if sum((e is None for e in self.xy_axis)) != 1:
+            raise ValueError(f'"xy_axis" requires exactly 1 element to be None (found {self.xy_axis})')
+
     
 
 @dataclass
@@ -383,10 +397,11 @@ class Option_Shading(_Option_Plot_Type):
 
 @dataclass
 class Option_Contour(_Option_Plot_Type):
-    levels: list = None
+    mpl_opts_list: list = None
 
     def __post_init__(self):
         super().__post_init__()
+        pyt.chkt.checkType(self.mpl_opts_list, list , 'levels')
 
 
 @dataclass

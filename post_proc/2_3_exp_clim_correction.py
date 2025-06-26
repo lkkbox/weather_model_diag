@@ -18,18 +18,19 @@ import os
 
 def main():
     for varname, ndim in [
-        ('u', 4),
-        ('v', 4),
-        ('w', 4),
-        ('q', 4),
-        ('olr', 3),
-        ('prec', 3),
+        # ('u', 4),
+        # ('v', 4),
+        # ('w', 4),
+        # ('q', 4),
+        # ('olr', 3),
+        # ('prec', 3),
+        ('t2m', 3),
     ]:
         run(varname, ndim)
 
 def run(varname, ndim):
     dataRootDir = '../../data/processed'
-    initTime = pyt.tt.ymd2float(2001, 1, 25)
+    initTime = pyt.tt.ymd2float(2009, 1, 26)
     ctl_name = 'exp_mjo-DEVM21' # adjusting target
     rfc_name = 're_GEPSv3_CFSR' # base line
     iMember = 0

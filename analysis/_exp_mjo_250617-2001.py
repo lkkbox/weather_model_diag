@@ -52,9 +52,10 @@ def main():
             option={
                 'numCases': len(cases),
                 'plot_sets': [
-                    *get_ps_u850_hov(),
+                    # *get_ps_u850_hov(),
                     # *get_ps_olr_hov(),
-                    *get_ps_prec_hov(),
+                    get_ps_lonLevQ(),
+                    # *get_ps_prec_hov(),
                     # *get_ps_vintq_hov(),
                     # *get_ps_vintq_map(),
                     # *get_ps_vintDivUv_map(),
@@ -203,6 +204,46 @@ def get_ps_vintq_hov():
             ],
         }
     ]
+
+
+def get_ps_lonLevQ():
+    return  {
+        'figs': [
+            {
+                'title': f'q init(2001-01-25) lat(5S-5N), lead({leads}-{leade})',
+                'name': f'lonLevQ_l{leads}-{leade}.png',
+                'mpl_opts': {'figsize': (6.4, 4.8), 'layout': 'constrained'},
+                'dim_means': [leads, leade],
+            }
+            for leads, leade in [(1, 5), (6, 10), (11, 15)]
+        ],
+        'subplots': [
+            {'position': [3, 2, i+1]}
+            for i in range(5)
+        ],
+        'figs_dim_by': 0,
+        'world_tick_dx': 20,
+        'fontsize_ticks': 6,
+        'fontsize_xlabel': 8,
+        'fontsize_ylabel': 8,
+        'ylabel': 'hPa',
+        'ylim': [1000, 500],
+        'shadings': [
+            {
+                'variable': 'q',
+                'xy_axis': [-1, -3],
+                'minMaxs': [[0, 45], [500, 1000], [-5, 5], [80, 180]],
+                'total_anomaly': 'anomaly',
+                'math': lambda z: z * 1000,
+                'levels': pyt.ct.mirror([0, 0.2, 0.5, 1, 2, 4]),
+                'operators': ['mask_by_surface_pressure'],
+                'colormap': pyt.colormaps.nclColormap('CBR_coldhot'),
+                'smooths': [5, None],
+                'contour_opts': {'colors': 'grey', 'linewidths':0.5, 'linestyles': '-'},
+            }
+        ],
+    }
+
 
 def get_ps_olr_hov():
     return  [

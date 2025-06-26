@@ -79,7 +79,7 @@ def main() -> None:
             *[
                 Variable(name, level)
                 for name in ['u', 'v', 't', 'z']
-                for level in [100, 200, 300, 500, 700, 850, 925, 1000]
+                for level in [100, 200, 500, 700, 850, 925, 1000]
             ],
             Variable('u10', None),
             Variable('v10', None),
@@ -172,6 +172,9 @@ def run(settings: Settings, model: Model) -> None:
                 data, dims = pyt.nct.ncreadByDimRange(
                     path, scoreName, minMaxs, decodeTime=False
                 )
+
+                if data is None:
+                    continue
 
                 if iScore == 0:
                     std_data, std_dims = read_clim_std(settings, variable, areaRead)

@@ -7,7 +7,16 @@ def get_mapper():
         'div2d_lonlat': div2d_lonlat,
         'vertical_pressure_mean': vertical_mean,
         'vertical_pressure_integration': vertical_inegration,
+        'mask_by_surface_pressure': mask_by_surface_pressure,
+        'time_tendency': time_tendency,
     }
+
+
+def time_tendency(data, dims, data2):
+    data = np.gradient(data, axis=0)
+    if data2 is not None:
+        data2 = np.gradient(data2, axis=0)
+    return data, data2
 
 def div2d_lonlat(data, dims, data2):
     dx, dy = pyt.ct.lonlat2dxdy(dims[-1], dims[-2])
@@ -35,6 +44,16 @@ def vertical_inegration(data, dims, data2):
     data *= DLEV
     if data2 is not None:
         data2 *= DLEV
+    return data, data2
+
+
+def mask_by_surface_pressure(data, dims, data2):
+    sp = _read_clim_sp(dims)
+    ny, nx = sp.shape
+    lev = np.tile(dims[-3][:, None, None], (1, ny, nx))
+    data[np.tile((lev > sp), (len(dims[0]), 1, 1, 1))] = np.nan
+    if data2 is not None:
+        data2[(lev > sp)] = np.nan
     return data, data2
 
 

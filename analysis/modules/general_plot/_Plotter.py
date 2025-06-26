@@ -37,7 +37,7 @@ class Plotter():
         self.fn_map = {
             self.Option_Shading: self.shading,
             self.Option_Contour: self.contour,
-            self.Option_Line: self.line,
+            self.Option_Line:   self.line,
             self.Option_Vector: self.vector,
         }
 
@@ -48,15 +48,22 @@ class Plotter():
 
         # ---- figure out auto configurations for plot_set
         if self.plot_set.xlim is None:
-            self.plot_set.xlim =  [
-                min([plot_type.auto_xlim[0] for plot_type in self.plot_types]),
-                max([plot_type.auto_xlim[1] for plot_type in self.plot_types]),
-            ]
+            if plot_type.auto_xlim is not None:
+                self.plot_set.xlim =  [
+                    min([plot_type.auto_xlim[0] for plot_type in self.plot_types]),
+                    max([plot_type.auto_xlim[1] for plot_type in self.plot_types]),
+                ]
+            else:
+                self.plot_set.xlim = None
+
         if self.plot_set.ylim is None:
-            self.plot_set.ylim =  [
-                min([plot_type.auto_ylim[0] for plot_type in self.plot_types]),
-                max([plot_type.auto_ylim[1] for plot_type in self.plot_types]),
-            ]
+            if plot_type.auto_ylim is not None:
+                self.plot_set.ylim =  [
+                    min([plot_type.auto_ylim[0] for plot_type in self.plot_types]),
+                    max([plot_type.auto_ylim[1] for plot_type in self.plot_types]),
+                ]
+            else:
+                self.plot_set.ylim = None
 
         # initialize fig (and axes inside)
         fig_dir = f'{fig_dir_root}/general_plot'
@@ -103,13 +110,6 @@ class Plotter():
 
 
     def run(self):
-        # initialize the figure
-        for fig in self.figs:
-            self._draw_fig_features(fig)
-
-            for subplot in fig.subplots:
-                self._draw_ax_features(subplot)
-
         # read and draw each plot type
         for plot_type in self.plot_types:
             self._run_plot_type(plot_type)
@@ -120,11 +120,17 @@ class Plotter():
             for subplot in fig.subplots:
                 self._post_draw_ax_features(subplot)
 
+        # decorating
+        for fig in self.figs:
+            self._draw_fig_features(fig)
+
+            for subplot in fig.subplots:
+                self._draw_ax_features(subplot)
 
         for fig in self.figs:
             print(f'saving to {fig.path}')
             fig.fig.savefig(fig.path)
-
+            plt.close(fig.fig)
 
         
     def _run_plot_type(self, plot_type):
@@ -137,6 +143,8 @@ class Plotter():
         # perform operators on datas
         for data1, data2 in zip(datas1, datas2):
             for operator in plot_type.operators:
+                if data1.vals is None:
+                    continue
                 data1.vals, data2.vals = operator(data1.vals, data1.dims, data2.vals)
 
         # average over none plot axes
@@ -147,21 +155,26 @@ class Plotter():
         # regrid data for the plotting x, y axis
         idimx = plot_type.xy_axis[0]
         idimy = plot_type.xy_axis[1]
-        regrid_x = np.r_[
-            plot_type.minMaxs[idimx][0]:
-            plot_type.minMaxs[idimx][1]+1:
-            plot_type.regrid_delta_x
-        ]
-        regrid_y = np.r_[
-            plot_type.minMaxs[idimy][0]:
-            plot_type.minMaxs[idimy][1]+1:
-            plot_type.regrid_delta_y
-        ]
+        if idimx is not None:
+            regrid_x = np.r_[
+                plot_type.minMaxs[idimx][0]:
+                plot_type.minMaxs[idimx][1]+1:
+                plot_type.regrid_delta_x
+            ]
+        if idimy is not None:
+            regrid_y = np.r_[
+                plot_type.minMaxs[idimy][0]:
+                plot_type.minMaxs[idimy][1]+1:
+                plot_type.regrid_delta_y
+            ]
+
         for data1, data2 in zip(datas1, datas2):
-            data1 = self._regrid_data(data1, regrid_x, idimx)
-            data1 = self._regrid_data(data1, regrid_y, idimy)
-            data2 = self._regrid_data(data2, regrid_x, idimx)
-            data2 = self._regrid_data(data2, regrid_y, idimy)
+            if idimx is not None:
+                data1 = self._regrid_data(data1, regrid_x, idimx)
+                data2 = self._regrid_data(data2, regrid_x, idimx)
+            if idimy is not None:
+                data1 = self._regrid_data(data1, regrid_y, idimy)
+                data2 = self._regrid_data(data2, regrid_y, idimy)
 
         # dimension average for x, y axis
         # [case][raw dims] -> [fig][subplot][y, x]
@@ -174,6 +187,10 @@ class Plotter():
             for subplot, data1, data2 in zip(
                 fig.subplots, datas1_fig, datas2_fig
             ):
+                if data1.vals is None:
+                    print('warning: no data is drawn')
+                    continue
+
                 x, y, z, v = data1.dims[0], data1.dims[1], data1.vals, data2.vals
                 z = self._smooth(plot_type.smooths, x, y, z)
                 z = self._math(plot_type.math, z)
@@ -199,8 +216,10 @@ class Plotter():
 
     def _draw_ax_features(self, subplot):
         # xlim, ylim
-        subplot.ax.set_xlim(self.plot_set.xlim)
-        subplot.ax.set_ylim(self.plot_set.ylim)
+        if self.plot_set.xlim is not None:
+            subplot.ax.set_xlim(self.plot_set.xlim)
+        if self.plot_set.ylim is not None:
+            subplot.ax.set_ylim(self.plot_set.ylim)
 
         if subplot.irow == subplot.nrows - 1:
             subplot.ax.set_xlabel(self.plot_set.xlabel, fontsize=self.plot_set.fontsize_xlabel)
@@ -230,7 +249,11 @@ class Plotter():
                 name = self.cases[subplot.isubplot].name
 
             subplot.title = f'({chr(subplot.isubplot+97)}) {name}'
+
         pyt.pt.titleCorner(subplot.ax, subplot.title)
+
+        if self.plot_set.grid_on:
+            subplot.ax.grid()
     
                 
     def _post_draw_ax_features(self, subplot):
@@ -279,12 +302,20 @@ class Plotter():
             subplot.ax.contour(x, y, z, **plot_type.contour_opts)
 
 
-    def contour(self, iax, ax, data):
-        raise NotImplementedError('contour')
+    def contour(self, subplot, x, y, z, plot_type):
+        for mpl_opts in plot_type.mpl_opts_list:
+            subplot.ax.contour(x, y, z, **mpl_opts)
 
 
-    def line(self, iax, ax, data):
-        raise NotImplementedError('line')
+    def line(self, subplot, x, y, z, plot_type):
+        if plot_type.xy_axis[0] is None:
+            linex = z.squeeze()
+            liney = y
+        elif plot_type.xy_axis[1] is None:
+            linex = x
+            liney = z.squeeze()
+
+        subplot.ax.plot(linex, liney, **plot_type.mpl_opts)
 
 
     def vector(self, subplot, x, y, u, v, plot_type):
@@ -393,6 +424,11 @@ class Plotter():
                     case.model.initTimes, case.model.members,
                     rootDir=mod_data_dir,
                 )
+
+            if data is None:
+                print('warning: no data is read')
+                return None, None
+
             if len(minMaxs) == 4: # Pa -> hPa
                 dims[-3] /= 100
 
@@ -444,13 +480,17 @@ class Plotter():
 
     def _manipulate_dims(self, datas, plot_type, plot_set):
         # [case][y, x] -> [fig][subplot][y, x]
-        if datas[0].vals is None:
+        if all((d.vals is None for d in datas)):
             return [
                 [_Data(None, None)] * len(plot_set.subplots)
             ] * len(self.figs)
 
-        figs_dim_by = _sanitize_negative_axis(plot_set.figs_dim_by, datas[0].vals.ndim)
-        subplots_dim_by = _sanitize_negative_axis(plot_set.subplots_dim_by, datas[0].vals.ndim)
+        for d in datas:
+            if d.vals is not None:
+                data = d
+
+        figs_dim_by = _sanitize_negative_axis(plot_set.figs_dim_by, d.vals.ndim)
+        subplots_dim_by = _sanitize_negative_axis(plot_set.subplots_dim_by, d.vals.ndim)
 
         datas_out = []
         for ifig in range(len(self.figs)):
@@ -463,6 +503,10 @@ class Plotter():
                 else:
                     # should be caught in Option and would not happen though
                     raise RuntimeError('help! cannot identify "icase"')
+
+                if datas[icase].vals is None:
+                    datas_sublist.append(_Data(None, None))
+                    continue
 
                 slices = [slice(None)] * datas[icase].vals.ndim
 
@@ -481,9 +525,23 @@ class Plotter():
                 data.vals = np.nanmean(
                     datas[icase].vals[*slices], axis=tuple(mean_over)
                 )
-                if plot_type.xy_axis[1] > plot_type.xy_axis[0]: # swap xy axis if reversed
+                if (
+                    None not in plot_type.xy_axis \
+                    and plot_type.xy_axis[1] > plot_type.xy_axis[0] # swap xy axis if reversed
+                ):
                     data.vals = np.swapaxes(data.vals, 0, 1)
-                data.dims = [datas[icase].dims[i] for i in plot_type.xy_axis]
+
+                elif plot_type.xy_axis[0] is None:
+                    data.vals = data.vals[:, None]
+
+                elif plot_type.xy_axis[1] is None:
+                    data.vals = data.vals[None, :]
+
+                data.dims = [
+                    datas[icase].dims[i] 
+                    if i is not None else None 
+                    for i in plot_type.xy_axis
+                ]
 
                 datas_sublist.append(data)
             datas_out.append(datas_sublist)
