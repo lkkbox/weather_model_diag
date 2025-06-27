@@ -44,14 +44,16 @@ def run(modelName, initTimes, members, dataDir, clim_bc=False):
     if not os.access(desRoot, os.W_OK):
         raise PermissionError(f'denied to write to {desRoot}')
 
-    #
-    # --- core
-    def readcalsave(initTime, iMember):
-        fp.flush(f'running {pyt.tt.float2format(initTime, "%Y%m%d %Hz")}, member={iMember}')
-        desPath = pyt.tt.float2format(
+
+    def get_path(initTime, member):
+        path = pyt.tt.float2format(
             initTime,
-            f'{desRoot}/%Y/E{iMember:03d}/%y%m%d_RMM.nc'
+            f'{desRoot}/%Y/E{member:03d}/%y%m%d_RMM.nc'
         )
+        return path
+
+    def get_desPath(initTime, member):
+        desPath = get_path(initTime, member)
         desDir = os.path.dirname(desPath)
 
         if not os.path.exists(desDir):
@@ -60,6 +62,24 @@ def run(modelName, initTimes, members, dataDir, clim_bc=False):
         if not pyt.ft.canBeWritten(desPath):
             raise PermissionError(f'{desPath}')
 
+        return desPath
+
+    def save(desPath, time, pc1, pc2):
+        for varName, data in zip(['pc1', 'pc2'], [pc1, pc2]):
+            pyt.nct.save(
+                desPath, {
+                    varName: data,
+                    'time': time,
+                },
+                overwrite=True
+            )
+
+    #
+    # --- core
+    def readcalsave(initTime, member):
+        fp.flush(f'running {pyt.tt.float2format(initTime, "%Y%m%d %Hz")}, member={member}')
+
+        desPath = get_desPath(initTime, member)
         if os.path.exists(desPath):
             fp.print(f'skip existing file {desPath}')
             return
@@ -71,7 +91,7 @@ def run(modelName, initTimes, members, dataDir, clim_bc=False):
             paths = [
                 pyt.tt.float2format(
                     initTime,
-                    f'{srcRootDirMod}/%Y/E{iMember:03d}/%y%m%d_{varName}.nc'
+                    f'{srcRootDirMod}/%Y/E{member:03d}/%y%m%d_{varName}.nc'
                 ) for varName in ['olr', 'u850', 'u200']
             ]
             if not all([os.path.exists(p) for p in paths]):
@@ -95,7 +115,7 @@ def run(modelName, initTimes, members, dataDir, clim_bc=False):
         def readMod(varName):
             path = pyt.tt.float2format(
                 initTime,
-                f'{srcRootDirMod}/%Y/E{iMember:03d}/%y%m%d_{varName}.nc'
+                f'{srcRootDirMod}/%Y/E{member:03d}/%y%m%d_{varName}.nc'
             )
             data = pyt.nct.read(path, varName)
             return data
@@ -124,23 +144,57 @@ def run(modelName, initTimes, members, dataDir, clim_bc=False):
 
         pc1 = pc1[numPrevDays:]
         pc2 = pc2[numPrevDays:]
+
         time = [initTime + i + 1 for i in range(nt - numPrevDays)]
 
-        for varName, data in zip(['pc1', 'pc2'], [pc1, pc2]):
-            pyt.nct.save(
-                desPath, {
-                    varName: data,
-                    'time': time,
-                },
-                overwrite=True
-            )
+        save(desPath, time, pc1, pc2)
         return
+    
+    def ensavg(initTime, member):
+        fp.flush(f'running {pyt.tt.float2format(initTime, "%Y%m%d %Hz")}, member={member}')
+        numMembers = -member
+
+        desPath = get_desPath(initTime, member)
+        if os.path.exists(desPath):
+            fp.print(f'skip existing file {desPath}')
+            return
+
+        srcPaths = []
+        for mem in range(numMembers):
+            path = get_path(initTime, mem)
+            if not os.path.exists(path):
+                fp.print(f'path not found: {path}')
+                continue
+            srcPaths.append(path)
+
+        if not srcPaths:
+            fp.print(f'[fatal]: no valid srcpaths found')
+            return
+
+        pc1s = [pyt.nct.read(path, 'pc1') for path in srcPaths]
+        pc2s = [pyt.nct.read(path, 'pc2') for path in srcPaths]
+
+        numLeads = max((len(p) for p in pc1s))
+        time = [initTime + lead for lead in range(numLeads)]
+
+        pc1, pc2 = np.nan * np.ones(numLeads), np.nan * np.ones(numLeads)
+        for iLead in range(numLeads):
+            pc1[iLead] = np.mean([pc1[iLead] for pc1 in pc1s if len(pc1) > iLead])
+            pc2[iLead] = np.mean([pc2[iLead] for pc2 in pc2s if len(pc2) > iLead])
+
+        
+        save(desPath, time, pc1, pc2)
+        return
+
 
     #
     # --- loop over the core
     for initTime in initTimes:
-        for iMember in members:
-            readcalsave(initTime, iMember)
+        for member in members:
+            if member > 0:
+                readcalsave(initTime, member)
+            else:
+                ensavg(initTime, member)
 
     fp.print(f'< exiting {pyt.ft.getModuleName()}')
 

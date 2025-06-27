@@ -160,11 +160,11 @@ class Option_Plot_Set():
 
         if self.subplots_dim_by == "case" and self.subplots is None:
             numSubplots = self._numCases
-            if numSubplots <= 8:
+            if numSubplots <= 6:
                 nrows = 2
             else:
                 nrows = 3
-            ncols = numSubplots // nrows + 1
+            ncols = numSubplots // (nrows + 1) + 1
             self.subplots = [
                 {
                     'position': [nrows, ncols, i+1],

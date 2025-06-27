@@ -45,13 +45,13 @@ def run(modelName, initTimes, members, dataDir, climYears=[2006, 2020]):
 
     #
     # --- core
-    def readcalsave(initTime, iMember, varName):
+    def readcalsave(initTime, member, varName):
         fp.flush(f'running {
             pyt.tt.float2format(initTime, "%Y%m%d %Hz")
-            }, member={iMember}, {varName} ')
+            }, member={member}, {varName} ')
         desPath = pyt.tt.float2format(
             initTime,
-            f'{desRoot}/%Y/E{iMember:03d}/%y%m%d_{varName}.nc'
+            f'{desRoot}/%Y/E{member:03d}/%y%m%d_{varName}.nc'
         )
         desDir = os.path.dirname(desPath)
 
@@ -80,7 +80,7 @@ def run(modelName, initTimes, members, dataDir, climYears=[2006, 2020]):
         #
         # ---- read data
         data, dims = pyt.modelreader.readAnomaly.readAnomaly(
-            modelName, dataType, ncVarName, minMaxs, [initTime], [iMember],
+            modelName, dataType, ncVarName, minMaxs, [initTime], [member],
             climYears=climYears, rootDir=processedRoot
         )
         if data is None:
@@ -106,9 +106,11 @@ def run(modelName, initTimes, members, dataDir, climYears=[2006, 2020]):
     #
     # --- loop over the core
     for initTime in initTimes:
-        for iMember in members:
+        for member in members:
+            if member < 0:
+                continue
             for varName in varNames:
-                readcalsave(initTime, iMember, varName)
+                readcalsave(initTime, member, varName)
 
     fp.print(f'< exiting {pyt.ft.getModuleName()}')
 

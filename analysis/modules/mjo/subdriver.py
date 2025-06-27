@@ -7,6 +7,7 @@ from .rmm.rmm_prep_mermean_mod_nobc import run as mermean_mod_nobc
 from .rmm.rmm_plot import Rmm_plotter
 import pytools as pyt
 from dataclasses import dataclass, field
+import os
 
 
 def run(cases, dataDir, figDir, option):
@@ -48,20 +49,26 @@ def _run_data(cases, dataDir):
             indices_mod(model.name, initTimes, members, dataDir, clim_bc=True)
 
 @greeter
-def _run_plot(cases, dataDir, figDir, option):
+def _run_plot(cases, dataDir, figDirRoot, option):
     stat = True
     for case in cases[1:]:
         if case.model.initTime0 != cases[0].model.initTime0:
             stat = False
         if case.model.numInitTimes != cases[0].model.numInitTimes:
             stat = False
+
     if not stat:
         raise RuntimeError(f'mjo plot does not allow different initTimes between models ({cases[0].name}:{cases[0].model.name}, {case.name}:{case.model.name})')
+
+    fig_dir = f'{figDirRoot}/MJO/{option.fig_subdir}' 
+    if not os.path.exists(fig_dir):
+        os.makedirs(fig_dir)
+
 
 
     plotter = Rmm_plotter(
         dataRoot=f'{dataDir}/MJO/RMM',
-        figDir=f'{figDir}/MJO',
+        figDir=fig_dir,
         cases=cases,
         option=option,
     )
@@ -72,32 +79,27 @@ def _run_plot(cases, dataDir, figDir, option):
 class Option_Phase_Diagram():
     lead_means: list = None
     init_means: list = None
-    colors: list = None
+    mpl_line_opts: list = None
 
     def __post_init__(self):
         # set defaults
         if self.lead_means is None:
-            self.lead_means = [slice(i * 5, (i+1) * 5) for i in range(6)]
+            self.lead_means = []
         if self.init_means is None:
             self.init_means = [slice(i * 5, (i+1) * 5) for i in range(6)]
-        if self.colors is None:
-            self.colors = [
-                'tab:blue', 'tab:orange', 'tab:green', 'tab:red', 
-                'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
-                'tab:olive', 'tab:cyan'
-            ]
-
+        if self.mpl_line_opts is None:
+            self.mpl_line_opts = get_default_line_opts()
 
         # check types
         pyt.chkt.checkType(self.lead_means, list, 'lead_means')
         pyt.chkt.checkType(self.init_means, list, 'init_means')
-        pyt.chkt.checkType(self.colors, list , 'colors')
+        pyt.chkt.checkType(self.mpl_line_opts, list , 'mpl_line_opts')
         for lead_mean in self.lead_means:
             pyt.chkt.checkType(lead_mean, slice, 'lead_mean')
         for init_mean in self.init_means:
             pyt.chkt.checkType(init_mean, slice, 'init_mean')
 
-        self.colors = CircularYielder(self.colors)
+        self.mpl_line_opts = CircularYielder(self.mpl_line_opts)
             
 
 @dataclass
@@ -112,18 +114,11 @@ class Option_Score_Diagram():
     mpl_line_opts: list = None
     legend_opts: dict = None
     add_ensmean: bool = True
+    fig_opts: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.mpl_line_opts is None:
-            self.mpl_line_opts = [
-                {'color': f'tab:{color}','linestyle': linestyle}
-                for linestyle in ['-', '--', '-.', ':']
-                for color in [
-                    'blue', 'orange', 'green', 'red', 
-                    # 'purple', 'brown', 'pink', 'gray', 
-                    # 'olive', 'cyan', 
-                ]
-            ]
+            self.mpl_line_opts = get_default_line_opts()
         if self.legend_opts is None:
             self.legend_opts = {'loc': 'outside right upper'}
 
@@ -155,6 +150,7 @@ class Option_Score_Diagram():
 class Option(): # defalt options
     do_data: bool = True
     do_plot: bool = True
+    fig_subdir: str = ''
     phase_diagram: dict = field(default_factory=dict)
     score_diagram: dict = field(default_factory=dict)
 
@@ -162,6 +158,7 @@ class Option(): # defalt options
         # convert to class objects
         pyt.chkt.checkType(self.phase_diagram, dict, 'phase_diagram')
         pyt.chkt.checkType(self.score_diagram, dict, 'score_diagram')
+        pyt.chkt.checkType(self.fig_subdir, str , 'fig_subdir')
         self.phase_diagram = Option_Phase_Diagram(**self.phase_diagram)
         self.score_diagram = Option_Score_Diagram(**self.score_diagram)
 
@@ -188,3 +185,14 @@ class CircularYielder():
     def reset(self):
         self.nextInd = 0
 
+
+def get_default_line_opts():
+    return [
+        {'color': f'tab:{color}','linestyle': linestyle}
+        for linestyle in ['-', '--', '-.', ':']
+        for color in [
+            'blue', 'orange', 'green', 'red', 
+            # 'purple', 'brown', 'pink', 'gray', 
+            # 'olive', 'cyan', 
+        ]
+    ]

@@ -34,10 +34,10 @@ class Rmm_plotter():
         self._read_indices()
         self._calculate_scores()
         self._plot_scores()
-        self._plot_phase_diagram(meanOver='lead', ensMean=True)
-        self._plot_phase_diagram(meanOver='init', ensMean=True)
-        self._plot_phase_diagram(meanOver='lead', ensMean=False)
-        self._plot_phase_diagram(meanOver='init', ensMean=False)
+        self._plot_phase_diagram(meanOver='lead', drawMembers=True)
+        self._plot_phase_diagram(meanOver='init', drawMembers=True)
+        self._plot_phase_diagram(meanOver='lead', drawMembers=False)
+        self._plot_phase_diagram(meanOver='init', drawMembers=False)
         self.fp.print(f'> exiting {self.__class__.__name__}')
 
 
@@ -80,8 +80,6 @@ class Rmm_plotter():
         # list[array]: [model][member, init, lead]
         pc1_cases = [None for __ in range(self.numCases)]
         pc2_cases = [None for __ in range(self.numCases)]
-        pc1_ensmn = [None for __ in range(self.numCases)]
-        pc2_ensmn = [None for __ in range(self.numCases)]
         for iCase, case in enumerate(self.cases):
             numMembers = case.model.numMembers
             pc1_cases[iCase] = np.nan * np.ones((numMembers, self.numInits, self.numLeads))
@@ -99,19 +97,14 @@ class Rmm_plotter():
                     pc1_cases[iCase][iMember, iInit, :nt] = pc1[:nt]
                     pc2_cases[iCase][iMember, iInit, :nt] = pc2[:nt]
 
-            pc1_ensmn[iCase] = np.nanmean(pc1_cases[iCase], axis=0)
-            pc2_ensmn[iCase] = np.nanmean(pc2_cases[iCase], axis=0)
-
         # ---- output
         self.pc1_valid, self.pc2_valid = pc1_valid, pc2_valid
         self.pc1_cases, self.pc2_cases = pc1_cases, pc2_cases
-        self.pc1_ensmn, self.pc2_ensmn = pc1_ensmn, pc2_ensmn
 
 
     def _calculate_scores(self):
         pc1_valid, pc2_valid = self.pc1_valid, self.pc2_valid
         pc1_cases, pc2_cases = self.pc1_cases, self.pc2_cases
-        pc1_ensmn, pc2_ensmn = self.pc1_ensmn, self.pc2_ensmn
 
         def cal_acc(pc1, pc2):
             acc = np.nansum((pc1 * pc1_valid + pc2 * pc2_valid), axis=-2)
@@ -131,26 +124,20 @@ class Rmm_plotter():
         accs = [cal_acc(pc1, pc2) for pc1, pc2 in zip(pc1_cases, pc2_cases)]
         rmses = [cal_rmse(pc1, pc2) for pc1, pc2 in zip(pc1_cases, pc2_cases)]
 
-        acc_ensmn = [cal_acc(pc1, pc2) for pc1, pc2 in zip(pc1_ensmn, pc2_ensmn)]
-        rmse_ensmn = [cal_rmse(pc1, pc2) for pc1, pc2 in zip(pc1_ensmn, pc2_ensmn)]
-
         # ---- output
         self.accs, self.rmses = accs, rmses
-        self.acc_ensmn, self.rmse_ensmn = acc_ensmn, rmse_ensmn
 
 
     def _plot_scores(self):
         x = list(range(1, self.numLeads+1))
-        scores, scores_ensmn, names, ylims = [], [], [], []
+        scores, names, ylims = [], [], []
         if self.option.score_diagram.do_rmse:
             scores.append(self.rmses)
-            scores_ensmn.append(self.rmse_ensmn)
             names.append('RMSE')
             ylims.append(self.option.score_diagram.ylim_rmse)
 
         if self.option.score_diagram.do_acc:
             scores.append(self.accs)
-            scores_ensmn.append(self.acc_ensmn)
             names.append('ACC')
             ylims.append(self.option.score_diagram.ylim_acc)
 
@@ -164,9 +151,15 @@ class Rmm_plotter():
             print('both "do_acc" and "do_rmse" are False, will not plot scores')
             return
 
-        fig = plt.figure(figsize=figsize, layout='constrained')
-        for iax, (score_cases, score_cases_ensmn, name, ylim) in enumerate(
-            zip(scores, scores_ensmn, names, ylims)
+        fig_opts = self.option.score_diagram.fig_opts
+        if 'figsize' not in fig_opts:
+            fig_opts['figsize'] = figsize
+        if 'layout' not in fig_opts:
+            fig_opts['layout'] = 'constrained'
+
+        fig = plt.figure(**fig_opts)
+        for iax, (score_cases, name, ylim) in enumerate(
+            zip(scores, names, ylims)
         ):
             ax = fig.add_subplot(len(scores), 1, iax+1)
             ax.set_ylabel(name)
@@ -186,24 +179,30 @@ class Rmm_plotter():
 
             ax.grid()
             if iax == 0:
-                ax.set_title('Bivariate scores of RMM indices')
+                ax.set_title(f'Bivariate scores of RMM indices, IC={pyt.tt.times2string(self.initTimes)}')
 
             line_opts = self.option.score_diagram.mpl_line_opts
             line_opts.reset()
-            for case, score_members, score_ensmn in zip(self.cases, score_cases, score_cases_ensmn):
+            for case, score_members in zip(self.cases, score_cases):
                 # plot each member
                 for score, member in zip(score_members, case.model.members): 
                     line_opt = line_opts()
                     if 'label' not in line_opt:
-                        line_opt['label'] = f'{case.name}, m{member}'
-                    ax.plot(x, score, **line_opt)
+                        if member == 0:
+                            member_name = 'CTL'
+                        elif member < 0:
+                            member_name = 'ENS'
+                        else:
+                            member_name = f'M{member:03d}'
 
-                # plot ensemble mean
-                if self.option.score_diagram.add_ensmean:
-                    line_opt = line_opts()
-                    if 'label' not in line_opt:
-                        line_opt['label'] = f'{case.name}, ensmn'
-                    ax.plot(x, score_ensmn, **line_opt)
+                        label = f'{case.name} {member_name}'
+
+                        if case.model.hasClim:
+                            label += '(BC)'
+
+                        line_opt['label'] =  label
+
+                    ax.plot(x, score, **line_opt)
 
             if iax == 0:
                 fig.legend(**self.option.score_diagram.legend_opts)
@@ -217,8 +216,7 @@ class Rmm_plotter():
         plt.close()
 
 
-    def _plot_phase_diagram(self, meanOver, ensMean):
-        colors = self.option.phase_diagram.colors
+    def _plot_phase_diagram(self, meanOver, drawMembers):
         if meanOver == 'init':
             slices = self.option.phase_diagram.init_means
             averager = lambda data, _slice: np.nanmean(data[_slice, :], axis=-2)
@@ -229,11 +227,12 @@ class Rmm_plotter():
             averager = lambda data, _slice: np.nanmean(data[:, _slice], axis=-1)
             slice_to_string = lambda _slice: f'{_slice.start+1}-{_slice.stop}'
 
-        if ensMean:
-            ensName = 'ensmean'
+        if drawMembers:
+            ensName = 'ctl_ens'
         else:
             ensName = 'members'
 
+        line_opts = self.option.phase_diagram.mpl_line_opts
         for _slice in slices:
             if meanOver == 'init':
                 if _slice.start >= self.numInits:
@@ -254,29 +253,31 @@ class Rmm_plotter():
             markerStep = 10
             markers = '^o*s>'
 
-            colors.reset()
+            line_opts.reset()
             # -- model
-            for pc1, pc2, case in zip(self.pc1_cases, self.pc2_cases, self.cases):
-                color = colors()
-                if case.model.hasClim:
-                    case_name = f'{case.name} (BC)'
-                else:
-                    case_name = case.name
+            for pc1, pc2, case  in zip(self.pc1_cases, self.pc2_cases, self.cases):
+                for iMember, member in enumerate(case.model.members):
+                    line_opt = line_opts()
+                    if 'label' not in line_opt:
+                        if member == 0:
+                            member_name = 'CTL'
+                        elif member < 0:
+                            member_name = 'ENS'
+                        else:
+                            member_name = f'M{member:03d}'
 
-                if not ensMean: # plot all members
-                    for iMember, member in enumerate(case.model.members):
-                        x = averager(pc1[iMember, :], _slice)
-                        y = averager(pc2[iMember, :], _slice)
-                        ax.plot(x, y, linewidth=0.3, color=color)
-                        # for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
-                        #     ax.plot(xx, yy, color=color, marker=marker)
+                        label = f'{case.name} {member_name}'
 
-                # overlay the ensemble mean
-                x = averager(np.nanmean(pc1, axis=0), _slice)
-                y = averager(np.nanmean(pc2, axis=0), _slice)
-                ax.plot(x, y, color=color, label=case_name)
-                for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
-                    ax.plot(xx, yy, color=color, marker=marker)
+                        if case.model.hasClim:
+                            label += '(BC)'
+
+                        line_opt['label'] =  label
+
+                    x = averager(pc1[iMember, :], _slice)
+                    y = averager(pc2[iMember, :], _slice)
+                    hline, = ax.plot(x, y, **line_opt)
+                    for xx, yy, marker in zip(x[::markerStep], y[::markerStep], markers):
+                        ax.plot(xx, yy, color=hline.get_color(), marker=marker)
 
             # -- obs
             color = 'k'
@@ -289,10 +290,6 @@ class Rmm_plotter():
             title = f'{meanOver}={slice_to_string(_slice)}'
             if _slice.stop - _slice.start > 1:
                 title = f'mean({title})'
-            if ensMean:
-                title += ', ensemble mean'
-            else:
-                title += ', thick=ensemble mean'
             ax.set_title(title)
 
             ax.legend()
