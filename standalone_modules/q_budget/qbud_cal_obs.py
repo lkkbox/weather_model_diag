@@ -28,59 +28,93 @@ def main():
     if not os.path.exists(desDir):
         os.makedirs(desDir)
 
-    # ---- begins -- read data
+    # ---- begins
     minMaxTime = [caseDate, caseDate + numDates - 0.01]
     minMaxs = [minMaxTime, [levelTop, 1000], area[2:], area[:2]]
-    uTotal, uClim, uAnom, dims = readData('u', minMaxs)
-    vTotal, vClim, vAnom, dims = readData('v', minMaxs)
-    wTotal, wClim, wAnom, dims = readData('w', minMaxs)
-    qTotal, qClim, qAnom, dims = readData('q', minMaxs)
+
+    gradClim = [] # ---- read clim grad
+    for fluxName in ['uqx', 'vqy', 'wqp']:
+        flux, dims = readGradClim(fluxName, minMaxs)
+        gradClim.append(flux)
+    gradClim = np.array(gradClim)
+
+
+    windTotal, windClim, windAnom = [], [], [] # ---- read widns
+    for varName in ['u', 'v', 'w']:
+        total, clim, anom, dims = readVariable(varName, minMaxs)
+        windTotal.append(total)
+        windClim.append(clim)
+        windAnom.append(anom)
+
+    windTotal = np.array(windTotal)
+    windClim = np.array(windClim)
+    windAnom = np.array(windAnom)
+
+
+    qTotal, qClim, qAnom, dims = readVariable('q', minMaxs) # ---- read q
 
     time, lev, lat, lon = dims
     dy, dx = pyt.ct.lonlat2dxdy(lon, lat)
     dlev = np.gradient(lev)[:, None, None]
+    dtime = np.gradient(time)[:, None, None, None] / 86400 # ---- per second
 
-    totalAdvTotal = np.nan * np.ones((3, *uTotal.shape))
-    for iCoord, (wind, axis, coord) in enumerate(zip(
-        (uTotal, vTotal, wTotal),
-        (-1,     -2,     -3),
-        (dx,     dy,     dlev),
-    )):
-        totalAdvTotal[iCoord, :] = wind * np.gradient(qTotal, axis=axis) / coord
+    # ---- calculate moisture tendency
+    print(qAnom.shape)
+    qAnomTend = np.gradient(qAnom, axis=0) / dtime # ---- per second
 
-    anomAdvTotal = np.nan * np.ones((3, *uTotal.shape))
-    for iCoord, (wind, axis, coord) in enumerate(zip(
-        (uAnom, vAnom, wAnom),
-        (-1,    -2,    -3),
-        (dx,    dy,    dlev),
-    )):
-        anomAdvTotal[iCoord, :] = wind * np.gradient(qTotal, axis=axis) / coord
+    # ---- calculate gradient terms
+    totalGradTotal = np.nan * np.ones((windTotal.shape))
+    anomGradClim = np.nan * np.ones((windTotal.shape))
+    climGradAnom = np.nan * np.ones((windTotal.shape))
+    for iCoord, (deltaCoord, axis) in enumerate(zip([dx, dy, dlev], [-1, -2, -3])):
+        totalGradTotal = windTotal[iCoord, :] * np.gradient(qTotal, axis=axis) / deltaCoord
+        anomGradClim = windAnom[iCoord, :] * np.gradient(qClim, axis=axis) / deltaCoord
+        climGradAnom = windClim[iCoord, :] * np.gradient(qAnom, axis=axis) / deltaCoord
 
-    totalAdvAnom = np.nan * np.ones((3, *uTotal.shape))
-    for iCoord, (wind, axis, coord) in enumerate(zip(
-        (uTotal, vTotal, wTotal),
-        (-1,     -2,     -3),
-        (dx,     dy,     dlev),
-    )):
-        totalAdvAnom[iCoord, :] = wind * np.gradient(qTotal, axis=axis) / coord
+    anomGradAnom = totalGradTotal - anomGradClim - climGradAnom - gradClim
+    q2 = -qAnomTend - anomGradClim - climGradAnom - anomGradAnom
 
 
-    # vTotal, dims = readTotal('v', minMaxs)
-    # wTotal, dims = readTotal('w', minMaxs)
-    # qTotal, dims = readTotal('q', minMaxs)
 
-
-    fp.print(f'{uAnom.shape = }')
-    
-    # print(dims[0])
-    # print(uc.shape)
-
-
-def readData(varName, minMaxs):
+def readVariable(varName, minMaxs):
     total, dims = readTotal(varName, minMaxs)
     clim = readClim(varName, dims)
     anom = total - clim
     return total, clim, anom, dims
+
+
+def readGradClim(varName, minMaxs):
+    fp.flush(f'reading {varName}..')
+    if varName not in ['uqx', 'vqy', 'wqp']:
+        raise ValueError(f'unrecognized {varName = }')
+
+    root = '/nwpr/gfs/com120/9_data/ERA5/q_budget/clim_5dma'
+    dates = np.r_[minMaxs[0][0]:minMaxs[0][1]]
+    paths = [
+        pyt.tt.float2format(
+            date,
+            f'{root}/{varName}/ERA5_PRS_{varName}_%m%d.nc'
+        )
+        for date in dates
+    ]
+
+    minMaxs2 = [
+        [None, None],
+        *minMaxs[1:],
+    ]
+
+    data, dims = pyt.rt.multiNcRead.read(paths, varName, minMaxs2, iDimT=0, stackedAlong=0)
+    dims[0] = dates
+
+    data = data[:, None, :, :, :]
+    data = np.tile(data, (1, 4, 1, 1, 1))
+    data = np.reshape(data, (data.shape[0] * data.shape[1], *data.shape[2:]))
+
+    dims[0] = np.r_[dates[0]:dates[-1]+1:0.25]
+
+    data, dims = selectLevels(data, dims)
+
+    return data, dims
 
 
 def readTotal(varName, minMaxs):

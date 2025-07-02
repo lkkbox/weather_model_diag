@@ -140,6 +140,9 @@ def run(settings: Settings, model: Model) -> None:
     scores = np.nan * np.ones(
         (settings.numScoreNames, settings.numRegions, settings.numVariables, settings.numLeads)
     )
+    stds = np.nan * np.ones(
+        (settings.numScoreNames, settings.numRegions, settings.numVariables, settings.numLeads)
+    )
 
     # ---- read data by variables
     for iVariable, variable in enumerate(settings.variables):
@@ -199,17 +202,25 @@ def run(settings: Settings, model: Model) -> None:
                     score_all = np.nanmean(data[:, latSlice, lonSlice] * coslat, axis=(-1, -2)) \
                         / np.nanmean(coslat, axis=(-1, -2))
 
-                    score = []
+                    std_all = (data[:, latSlice, lonSlice] - score_all[:, None, None]) ** 2
+                    std_all = np.nanmean(std_all * coslat, axis=(-1, -2)) \
+                        / np.nanmean(coslat, axis=(-1, -2))
+                    std_all = np.sqrt(std_all)
+
+                    score, std = [], []
                     for index in indices:
                         if index > len(score_all):
                             score.append(np.nan)
+                            std.append(np.nan)
                         else:
                             score.append(score_all[index])
+                            std.append(std_all[index])
 
                     scores[iScore, iRegion, iVariable, ileads:ileade] = score
+                    stds[iScore, iRegion, iVariable, ileads:ileade] = std
 
 
-    print('saving..')
+    print(f'saving to {outPath}..')
     if os.path.exists(outPath):
         os.system(f'mv {outPath} {outPath}.bkp')
     # ---- save the dimensions
@@ -246,9 +257,19 @@ def run(settings: Settings, model: Model) -> None:
 
     # ---- save the variable
     for iScore, scoreName in enumerate(settings.scoreNames):
+        stdName = f'{scoreName}_std'
         pyt.nct.save(
             outPath, {
                 scoreName: scores[iScore, :],
+                'iRegion': list(range(settings.numRegions)),
+                'iVariable': list(range(settings.numVariables)),
+                'iLead': list(range(settings.numLeads)),
+            },
+            overwrite=True
+        )
+        pyt.nct.save(
+            outPath, {
+                stdName: stds[iScore, :],
                 'iRegion': list(range(settings.numRegions)),
                 'iVariable': list(range(settings.numVariables)),
                 'iLead': list(range(settings.numLeads)),
